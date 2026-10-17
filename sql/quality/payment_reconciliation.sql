@@ -1,14 +1,21 @@
 WITH item_totals AS (
     SELECT
         order_id,
-        CAST(sum(price + freight_value) AS DECIMAL(18, 2)) AS item_and_freight_total
+        CAST(
+            sum(
+                CAST(price AS DECIMAL(18, 2))
+                + CAST(freight_value AS DECIMAL(18, 2))
+            ) AS DECIMAL(18, 2)
+        ) AS item_and_freight_total
     FROM raw_order_items
     GROUP BY order_id
 ),
 payment_totals AS (
     SELECT
         order_id,
-        CAST(sum(payment_value) AS DECIMAL(18, 2)) AS payment_total
+        CAST(
+            sum(CAST(payment_value AS DECIMAL(18, 2))) AS DECIMAL(18, 2)
+        ) AS payment_total
     FROM raw_payments
     GROUP BY order_id
 )

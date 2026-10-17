@@ -30,7 +30,7 @@ def build_database(raw_dir: Path, database_path: Path) -> dict[str, int]:
             source = _quoted_path(raw_dir / filename)
             connection.execute(
                 f"CREATE OR REPLACE TABLE {table} AS "
-                f"SELECT * FROM read_csv('{source}', header=true, auto_detect=true)"
+                f"SELECT * FROM read_csv('{source}', header=true, all_varchar=true)"
             )
             counts[table] = connection.execute(
                 f"SELECT count(*) FROM {table}"

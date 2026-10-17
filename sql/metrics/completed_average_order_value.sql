@@ -1,7 +1,17 @@
+WITH completed_amount AS (
+    SELECT sum(CAST(i.price AS DECIMAL(18, 2))) AS product_amount
+    FROM raw_order_items AS i
+    INNER JOIN raw_orders AS o USING (order_id)
+    WHERE o.order_status = 'delivered'
+),
+completed_orders AS (
+    SELECT count(DISTINCT order_id) AS order_count
+    FROM raw_orders
+    WHERE order_status = 'delivered'
+)
 SELECT CAST(
-    sum(i.price) / nullif(count(DISTINCT o.order_id), 0)
+    a.product_amount / nullif(o.order_count, 0)
     AS DECIMAL(18, 2)
 ) AS completed_average_order_value
-FROM raw_order_items AS i
-INNER JOIN raw_orders AS o USING (order_id)
-WHERE o.order_status = 'delivered';
+FROM completed_amount AS a
+CROSS JOIN completed_orders AS o;

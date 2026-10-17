@@ -39,5 +39,38 @@ def test_completed_average_order_value(database_path: Path) -> None:
     )
 
 
+def test_average_order_value_counts_delivered_orders_without_items(
+    database_path: Path,
+) -> None:
+    connection = duckdb.connect(str(database_path))
+    try:
+        connection.execute(
+            """
+            INSERT INTO raw_orders (
+                order_id,
+                customer_id,
+                order_status,
+                order_purchase_timestamp,
+                order_delivered_customer_date,
+                order_estimated_delivery_date
+            )
+            VALUES (
+                'o4',
+                'c2',
+                'delivered',
+                '2018-02-02 09:00:00',
+                '2018-02-09 13:00:00',
+                '2018-02-08 00:00:00'
+            )
+            """
+        )
+    finally:
+        connection.close()
+
+    assert _metric(database_path, "completed_average_order_value.sql") == Decimal(
+        "76.67"
+    )
+
+
 def test_completed_unique_customer_count(database_path: Path) -> None:
     assert _metric(database_path, "completed_unique_customer_count.sql") == 1
