@@ -15,6 +15,11 @@ CHINA_DATASET = {
     "generator_version": "1.0", "seed": 20261017,
     "period": "2026年1—9月",
 }
+CUSTOMER_DATASET = {
+    "id": "customer_csv", "name": "用户导入的订单表格", "simulated": False,
+    "currency": "CNY", "currency_label": "人民币", "region_label": "省级地区",
+    "description": "用户导入数据：来源及准确性由提供者确认。每行一笔订单、一个汇总分类，金额为人民币；未提供交付日期，仅按已完成状态统计，不支持交付时效分析。",
+}
 
 
 def read_dataset(raw_dir):
@@ -25,6 +30,6 @@ def read_dataset(raw_dir):
         value = json.loads(path.read_text(encoding="utf-8"))
     except (ValueError, UnicodeError) as error:
         raise ValueError("数据集说明无法读取") from error
-    if value not in (CHINA_DATASET, OLIST_DATASET):
+    if value not in (CHINA_DATASET, OLIST_DATASET, CUSTOMER_DATASET):
         raise ValueError("数据集说明与支持的来源、币种或生成版本不一致")
     return value
