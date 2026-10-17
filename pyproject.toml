@@ -16,9 +16,14 @@ dev = ["pytest>=8,<10"]
 zhishu-profile = "zhishu_inspection.cli:main"
 zhishu-build-db = "zhishu_inspection.database:main"
 zhishu-week2 = "zhishu_inspection.week2_report:main"
+zhishu-build = "zhishu_inspection.pipeline:main"
+zhishu-serve = "zhishu_inspection.server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+zhishu_inspection = ["web/*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

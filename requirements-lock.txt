@@ -1,0 +1,4 @@
+# Direct runtime and test dependencies verified locally on Python 3.11.
+duckdb==1.5.6
+pytest==9.1.1
+setuptools==79.0.1
