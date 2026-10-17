@@ -15,12 +15,10 @@ main{padding-top:28px!important;padding-bottom:28px!important}.notice{display:fl
 </style>
 <link rel="stylesheet" href="/tools.css">
 </head>
-<body>
+<body data-page="overview">
 <header class="topbar"><div class="wrap"><div class="brand"><span class="brandmark" aria-hidden="true">智</span><div><strong>智数</strong><small>简单看懂每一笔生意</small></div></div><nav aria-label="主导航"><button data-tab="overview" class="active" aria-current="page">看经营</button><button data-tab="lookup">查订单</button><button data-tab="data">导入数据</button><button data-tab="quality">数据检查</button><button data-tab="help">使用说明</button></nav></div></header>
 <main class="wrap">
-<div class="notice"><span class="tag" id="source-tag">演示看板</span><span id="source-note">正在读取数据来源说明…</span></div>
-<div class="sourcebar"><label for="data-source">正在查看</label><select id="data-source"><option value="demo">演示数据</option><option value="customer" id="customer-option" disabled>我的导入数据（尚未导入）</option></select><button class="text-btn" data-tab="data">导入自己的表格 →</button></div>
-<div class="heading"><div><h1 id="page-title">经营情况，一眼看清</h1><p class="sub" id="subtitle">不用写代码，选好月份和地区就能看结果。</p></div><a id="download" class="button" aria-disabled="true" download="智数经营报告.html">↓ 保存当前报告</a></div>
+<div class="heading"><div><h1 id="page-title">经营概览</h1><p class="sub" id="subtitle"></p></div><div class="heading-actions"><div class="sourcebar"><label for="data-source" class="sr-only">数据集</label><select id="data-source"><option value="demo">默认数据</option><option value="customer" id="customer-option" disabled>导入数据（未导入）</option></select></div><a id="download" class="button" aria-disabled="true" download="智数经营报告.html">↓ 保存报告</a></div></div>
 <div id="error" class="message hidden" role="alert"><span id="error-text"></span><button id="retry" class="text-btn">重新加载</button></div>
 <p id="busy" class="loading" role="status" aria-live="polite">正在准备经营结果…</p>
 <section id="overview" class="section active" aria-label="经营概览">
@@ -31,7 +29,7 @@ main{padding-top:28px!important;padding-bottom:28px!important}.notice{display:fl
  <div class="kpis">
   <article class="kpi featured"><div class="kpi-label">商品销售额</div><div class="value" id="amount">—</div><span class="exact" id="amount-exact"></span><div class="kpi-note">卖出的商品金额，不含运费</div></article>
   <article class="kpi"><div class="kpi-label">已完成订单</div><div class="value"><span id="orders">—</span><small>单</small></div><span class="exact">已交付给买家的订单</span><div class="kpi-note">每笔订单只统计一次</div></article>
-  <article class="kpi"><div class="kpi-label">平均每单金额</div><div class="value" id="aov">—</div><span class="exact" id="aov-unit"></span><div class="kpi-note">商品销售额 ÷ 已完成订单</div></article>
+  <article class="kpi"><div class="kpi-label" id="aov-label">平均每单金额</div><div class="value" id="aov">—</div><span class="exact" id="aov-unit"></span><div class="kpi-note">商品销售额 ÷ 已完成订单</div></article>
   <article class="kpi"><div class="kpi-label">购买人数</div><div class="value"><span id="buyers">—</span><small>人</small></div><span class="exact">在当前所选范围内统计</span><div class="kpi-note">同一买家只算一次</div></article>
  </div>
  <div id="comparison" class="card spaced" aria-live="polite"></div>
@@ -72,10 +70,11 @@ const $=id=>document.getElementById(id);
 const esc=v=>String(v??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=(v,d=0)=>v===null||v===undefined?'—':Number(v).toLocaleString('zh-CN',{minimumFractionDigits:d,maximumFractionDigits:d});
 let current=null, sequence=0, activeSource='demo';
-const titles={overview:['经营情况，一眼看清','不用写代码，选好月份和地区就能看结果。'],lookup:['订单明细，随时可查','搜索编号、选择状态，找到具体订单并保存结果。'],data:['把自己的数据放进来','下载模板、检查表格、确认导入，三步生成看板。'],quality:['数据检查，看这里','异常有说明，结果有来处。'],help:['第一次使用，从这里开始','不用懂技术，跟着这三步就够了。']};
+const titles={overview:['经营概览',''],lookup:['订单明细，随时可查','搜索编号、选择状态，找到具体订单并保存结果。'],data:['把自己的数据放进来','下载模板、检查表格、确认导入，三步生成看板。'],quality:['数据检查，看这里','异常有说明，结果有来处。'],help:['第一次使用，从这里开始','不用懂技术，跟着这三步就够了。']};
 const statusNames={matched:'金额一致',mismatch:'金额需要核对',missing_items:'缺少商品记录',missing_payment:'缺少支付记录',missing_both:'缺少商品和支付记录'};
 const ruleNames=['订单号有没有缺失','订单号有没有重复','商品记录有没有重复','商品记录能否找到订单','商品记录能否找到商品','订单能否找到买家','商品价格是否有效','运费是否有效','订单状态是否有效','下单时间是否有效','买家编号是否有效','商品编号是否有效','商品记录编号是否有效','支付金额是否有效','支付记录有没有重复或缺号','买家身份编号有没有缺失','交付时间是否完整合理','支付记录能否找到订单'];
 function tab(name){
+ document.body.dataset.page=name;
  document.querySelectorAll('.section').forEach(s=>s.classList.toggle('active',s.id===name));
  document.querySelectorAll('nav button').forEach(b=>{b.classList.toggle('active',b.dataset.tab===name);if(b.dataset.tab===name)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
  $('page-title').textContent=titles[name][0];$('subtitle').textContent=titles[name][1];window.scrollTo(0,0);
@@ -120,14 +119,14 @@ function syncControls(d){
 function render(d){
  current=d;syncControls(d);
  const m=d.metrics,sim=d.dataset.simulated,cny=d.dataset.currency==='CNY',pass=d.quality.filter(r=>!r.failed_count).length;
- $('source-tag').textContent=sim?'模拟数据':'历史数据';
- $('source-note').textContent=sim?'中国大陆电商演示 · 人民币 · 数据由程序生成，仅供学习，不代表真实经营。':d.dataset.description;
  $('date-range').textContent=(d.date_bounds.min||'暂无')+' 至 '+(d.date_bounds.max||'暂无');
  $('region-label').textContent=d.dataset.id==='china_demo'?'看哪个省':'看哪地区';
  const region=d.filters.state==='__unknown__'?'未填写地区':d.filters.state||(cny?'全部省份':'全部地区');
  $('scope').textContent='当前显示：'+monthLabel(d.filters.start?.slice(0,7))+' · '+region;
  $('currency-note').textContent='金额单位：'+d.dataset.currency_label+(cny?'（元）':'（'+d.dataset.currency+'）')+' · 已交付订单';
  $('amount').textContent=compactMoney(m.completed_product_amount);
+ $('amount').title=num(m.completed_product_amount,2)+' '+unit();$('aov').title=d.dataset.currency_label+' / 单';
+ $('aov-label').textContent='平均每单金额（'+unit()+'/单）';
  $('amount-exact').textContent=m.completed_product_amount===null?'当前范围暂无销售额':'精确金额 '+num(m.completed_product_amount,2)+' '+unit();
  $('orders').textContent=num(m.completed_order_count);$('aov').textContent=num(m.completed_average_order_value,2);$('aov-unit').textContent=d.dataset.currency_label+' / 单';$('buyers').textContent=num(m.completed_unique_customer_count);
  $('trend-unit').textContent='商品销售额 · 单位：万'+unit();$('trend').innerHTML=trend(d.monthly);$('regions').innerHTML=bars(d.regions,'state',6);$('categories').innerHTML=bars(d.categories,'category',5);
@@ -147,7 +146,7 @@ function render(d){
  $('dataset-description').textContent=d.dataset.description;$('help-source').textContent=d.dataset.description+(sim?' 所有订单、买家和交易均为虚构，省级地区使用真实名称。后续接入你的真实数据，需要先整理数据字段。':'');
  $('built-at').textContent=new Date(d.built_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false});
  $('run-id').textContent=d.run_id;$('fingerprint').textContent=d.input_fingerprint;$('model-counts').textContent=Object.entries(d.table_counts).map(([k,v])=>k+'：'+num(v)+' 行').join('；');
- $('footer-note').textContent=sim?'中国大陆模拟演示版 · 本地运行':'公开历史数据 · 本地运行';
+ $('footer-note').textContent='';
  const reportParams=paramsFor(d.filters);reportParams.set('run_id',d.run_id);
  $('download').href='/report.html?'+reportParams;$('download').setAttribute('aria-disabled','false');
  renderTools(d);

@@ -7,14 +7,14 @@ function renderTools(d){
  const sourceKey=activeSource+':'+d.run_id;
  if(orderSourceKey!==sourceKey){$('order-search').value='';$('order-status').value='';orderSourceKey=sourceKey}
  $('customer-option').disabled=!d.customer_available;
- $('customer-option').textContent=d.customer_available?'我的导入数据':'我的导入数据（尚未导入）';
+ $('customer-option').textContent=d.customer_available?'导入数据':'导入数据（未导入）';
  $('data-source').value=activeSource;
  if(d.dataset.id==='customer_csv'){
-  $('source-tag').textContent='用户导入';$('source-note').textContent='正在查看你导入的人民币订单表格，来源及准确性由提供者确认。';
-  $('footer-note').textContent='用户导入数据 · 本地保存';$('region-label').textContent='看哪个省';
+  $('region-label').textContent='看哪个省';
   $('quality-note').textContent='基础指标已通过核对。表格未提供交付日期时，会保留缺失提示；金额差异请按订单核查。';
  }
  const comparison=d.comparison;
+ $('comparison').classList.toggle('hidden',!comparison?.available);
  if(!comparison||!comparison.available){
   $('comparison').innerHTML='<h2>和上个月比一比</h2><p class="caption">'+esc(comparison?.reason||'选择一个月份查看比较')+'</p>';
  }else{
@@ -22,7 +22,7 @@ function renderTools(d){
    const pct=v.percent===null?'暂无可比百分比':(Number(v.percent)>0?'↑ ':Number(v.percent)<0?'↓ ':'持平 ')+num(Math.abs(Number(v.percent)),2)+'%';
    const diff=v.difference===null?'本期或上期无可用金额':Number(v.difference)===0?'与上月相同':(Number(v.difference)>0?'增加 ':'减少 ')+num(Math.abs(Number(v.difference)),key.includes('amount')||key.includes('value')?2:0)+(key.includes('amount')||key.includes('value')?' '+unit():key.includes('customer')?' 人':' 单');
    return '<div><span>'+esc(metricNames[key])+'</span><b>'+esc(pct)+'</b><span>'+esc(diff)+'</span></div>';
-  }).join('')+'</div><p class="caption spaced">'+esc(comparison.note)+'</p>';
+  }).join('')+'</div>';
  }
  const technicalParams=new URLSearchParams({source:activeSource,run_id:d.run_id});
  document.querySelector('a[href^="/report.md"]').href='/report.md?'+technicalParams;
