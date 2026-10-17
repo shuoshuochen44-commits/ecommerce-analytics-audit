@@ -33,6 +33,8 @@ def input_files(raw_dir):
     names = list(EXPECTED_FILES)
     if (raw_dir / "dataset.json").exists():
         names.append("dataset.json")
+    if (raw_dir / "source.csv").exists():
+        names.append("source.csv")
     for name in names:
         path = raw_dir / name
         digest = hashlib.sha256()

@@ -24,7 +24,7 @@ zhishu-analyze = "zhishu_inspection.analysis_cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-zhishu_inspection = ["web/*.html"]
+zhishu_inspection = ["web/*.html", "web/*.js", "web/*.css"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

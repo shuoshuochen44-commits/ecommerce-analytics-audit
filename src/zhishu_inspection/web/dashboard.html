@@ -13,12 +13,12 @@ main{padding-top:28px!important;padding-bottom:28px!important}.notice{display:fl
 .checks{display:grid;grid-template-columns:1fr 1fr;gap:12px}.check{background:#f6f8f3;padding:14px;border-radius:8px;color:var(--muted);font-size:13px}.check b{display:block;color:var(--ink);font-size:25px;margin:4px 0}.check.warn b{color:var(--gold)}.section{display:none}.section.active{display:block}.hidden{display:none!important}.message{padding:13px 16px;border-radius:8px;background:#fff0e5;color:#8c4924;margin-bottom:14px}.loading{font-size:13px;color:var(--green);margin:12px 0}.empty{padding:40px 12px;text-align:center;color:var(--muted)}.empty p{margin-bottom:15px}.help-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.help-card{border:1px solid var(--line);padding:22px;border-radius:12px;background:white}.help-card .step{width:30px;height:30px;margin-bottom:14px}.help-card p{font-size:14px;color:var(--muted)}.spaced{margin-top:18px}details{border-top:1px solid var(--line);padding-top:14px;margin-top:14px;font-size:13px}summary{cursor:pointer;color:var(--green);font-weight:600}details p{margin-top:12px;color:var(--muted)}table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:12px 10px;text-align:left;border-bottom:1px solid #e5ece3;vertical-align:top}th{background:#f5f8f1;font-weight:500;color:var(--muted);white-space:nowrap}.table-wrap{overflow:auto}td details{border:0;margin:4px 0;padding:0}pre{font:12px/1.7 Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;background:#f4f7f0;padding:12px;border-radius:7px}.status{display:inline-block;border-radius:5px;padding:2px 8px;background:#eaf4e4;color:#49733c;font-size:12px}.status.warn{background:#fff1d7;color:#916218}.technical{font-size:12px;overflow-wrap:anywhere;color:var(--muted)}.footer{border-top:1px solid var(--line);margin-top:28px;padding-top:17px;display:flex;justify-content:space-between;gap:16px;color:var(--muted);font-size:12px}
 @media(max-width:1050px){.wrap{padding-left:24px;padding-right:24px}.local{display:none}.value{font-size:26px}.kpi{padding:18px 16px}.grid{grid-template-columns:1.25fr 1fr}}@media(max-width:760px){.topbar .wrap{height:auto;min-height:80px;flex-wrap:wrap;padding-top:15px;padding-bottom:12px;gap:12px}.topbar nav{width:100%}nav button{flex:1;padding:9px 8px}.brand small{font-size:11px}.wrap{padding-left:16px;padding-right:16px}main{padding-top:18px!important}.heading{margin:23px 0 17px;gap:12px;align-items:flex-start}h1{font-size:25px}.heading .button{font-size:12px;padding:9px 12px}.guide{gap:12px;flex-wrap:wrap}.guide button{margin-left:0}.guide span{font-size:12px}.filter{gap:12px;flex-wrap:wrap;padding:15px}.field{flex-basis:100%;display:grid;grid-template-columns:62px 1fr}.filter>.button{width:100%;padding:8px}.kpis{grid-template-columns:1fr 1fr;gap:12px}.grid,.bottom,.help-grid{grid-template-columns:1fr}.scope{align-items:flex-start;flex-direction:column;gap:4px}.kpi{padding:17px 14px}.value{font-size:26px}.card{padding:20px 17px}.notice{align-items:flex-start;font-size:12px;gap:9px}.footer{flex-wrap:wrap}.exact{font-size:10px}.chart{min-height:0}}@media(prefers-reduced-motion:no-preference){.fill{transition:width .2s}}
 </style>
+<link rel="stylesheet" href="/tools.css">
 </head>
-<body>
-<header class="topbar"><div class="wrap"><div class="brand"><span class="brandmark" aria-hidden="true">智</span><div><strong>智数</strong><small>简单看懂每一笔生意</small></div></div><nav aria-label="主导航"><button data-tab="overview" class="active" aria-current="page">看经营</button><button data-tab="quality">数据检查</button><button data-tab="help">使用说明</button></nav><span class="local">在你的电脑上运行</span></div></header>
+<body data-page="overview">
+<header class="topbar"><div class="wrap"><div class="brand"><span class="brandmark" aria-hidden="true">智</span><div><strong>智数</strong><small>简单看懂每一笔生意</small></div></div><nav aria-label="主导航"><button data-tab="overview" class="active" aria-current="page">看经营</button><button data-tab="lookup">查订单</button><button data-tab="data">导入数据</button><button data-tab="quality">数据检查</button><button data-tab="help">使用说明</button></nav></div></header>
 <main class="wrap">
-<div class="notice"><span class="tag" id="source-tag">演示看板</span><span id="source-note">正在读取数据来源说明…</span></div>
-<div class="heading"><div><h1 id="page-title">经营情况，一眼看清</h1><p class="sub" id="subtitle">不用写代码，选好月份和地区就能看结果。</p></div><a id="download" class="button" aria-disabled="true" download="智数经营报告.html">↓ 保存当前报告</a></div>
+<div class="heading"><div><h1 id="page-title">经营概览</h1><p class="sub" id="subtitle"></p></div><div class="heading-actions"><div class="sourcebar"><label for="data-source" class="sr-only">数据集</label><select id="data-source"><option value="demo">默认数据</option><option value="customer" id="customer-option" disabled>导入数据（未导入）</option></select></div><a id="download" class="button" aria-disabled="true" download="智数经营报告.html">↓ 保存报告</a></div></div>
 <div id="error" class="message hidden" role="alert"><span id="error-text"></span><button id="retry" class="text-btn">重新加载</button></div>
 <p id="busy" class="loading" role="status" aria-live="polite">正在准备经营结果…</p>
 <section id="overview" class="section active" aria-label="经营概览">
@@ -29,15 +29,27 @@ main{padding-top:28px!important;padding-bottom:28px!important}.notice{display:fl
  <div class="kpis">
   <article class="kpi featured"><div class="kpi-label">商品销售额</div><div class="value" id="amount">—</div><span class="exact" id="amount-exact"></span><div class="kpi-note">卖出的商品金额，不含运费</div></article>
   <article class="kpi"><div class="kpi-label">已完成订单</div><div class="value"><span id="orders">—</span><small>单</small></div><span class="exact">已交付给买家的订单</span><div class="kpi-note">每笔订单只统计一次</div></article>
-  <article class="kpi"><div class="kpi-label">平均每单金额</div><div class="value" id="aov">—</div><span class="exact" id="aov-unit"></span><div class="kpi-note">商品销售额 ÷ 已完成订单</div></article>
+  <article class="kpi"><div class="kpi-label" id="aov-label">平均每单金额</div><div class="value" id="aov">—</div><span class="exact" id="aov-unit"></span><div class="kpi-note">商品销售额 ÷ 已完成订单</div></article>
   <article class="kpi"><div class="kpi-label">购买人数</div><div class="value"><span id="buyers">—</span><small>人</small></div><span class="exact">在当前所选范围内统计</span><div class="kpi-note">同一买家只算一次</div></article>
  </div>
+ <div id="comparison" class="card spaced" aria-live="polite"></div>
  <div id="empty-state" class="empty card spaced hidden"><p>这个范围还没有已完成订单。换个月份或地区试试。</p><button class="button" id="empty-reset">查看全部数据</button></div>
  <div id="charts">
   <div class="grid"><article class="card"><div class="card-head"><div><h2>每个月卖了多少</h2><p class="caption" id="trend-unit">商品销售额</p></div><span class="pill">按下单月份</span></div><div id="trend" class="chart"></div><div class="chart-foot">鼠标移到圆点可看具体金额。首尾月份可能不完整；不包含未交付的订单。</div></article><article class="card"><div class="card-head"><div><h2>哪些地区买得多</h2><p class="caption">按商品销售额排列 · 前六名</p></div><span class="pill">客户所在地区</span></div><div id="regions"></div></article></div>
   <div class="insight" id="insight"></div>
   <div class="grid bottom"><article class="card"><div class="card-head"><div><h2>哪些商品卖得好</h2><p class="caption">按商品分类的销售额排列 · 前五名</p></div></div><div id="categories"></div></article><article class="card"><div class="card-head"><div><h2>数据有没有问题</h2><p class="caption">检查所有数据，不随月份或地区变化</p></div><button class="text-btn" data-tab="quality">查看详情 →</button></div><div class="checks"><div class="check">已通过检查<b id="passed">—</b><span>检查项目</span></div><div class="check warn">需要看一看<b id="unmatched">—</b><span>待核对订单</span></div></div><p class="chart-foot" id="quality-note"></p></article></div>
  </div>
+</section>
+<section id="lookup" class="section" aria-label="订单查询">
+ <article class="card"><div class="card-head"><div><h2>查找具体订单</h2><p class="caption" id="order-scope">按当前经营月份与地区查询，包含未交付及取消订单。</p></div><button class="text-btn" data-tab="overview">更改月份或地区 →</button></div>
+ <form id="order-form" class="order-form"><div><label for="order-search">订单号或买家编号</label><input id="order-search" maxlength="80" placeholder="输入完整编号或其中一部分"></div><div><label for="order-status">订单状态</label><select id="order-status"><option value="">全部状态</option><option value="delivered">已完成</option><option value="shipped">已发货</option><option value="processing">处理中</option><option value="canceled">已取消</option><option value="created">已创建</option><option value="approved">已确认</option><option value="invoiced">已开票</option><option value="unavailable">不可用</option></select></div><button class="button primary" id="order-submit">查询订单</button><a id="order-export" class="button" aria-disabled="true" download="订单查询结果.csv">↓ 导出结果</a></form>
+ <p id="order-message" class="caption spaced" role="status" aria-live="polite">正在读取订单…</p><div class="table-wrap spaced"><table><thead><tr><th>订单号 / 买家编号</th><th>日期 / 地区</th><th>状态</th><th>商品金额</th><th>运费</th><th>支付金额</th><th>金额核对</th></tr></thead><tbody id="order-body"></tbody></table></div><div class="pager"><button class="button" id="order-prev" disabled>上一页</button><span id="order-page"></span><button class="button" id="order-next" disabled>下一页</button></div><p class="caption">金额单位跟随当前数据来源。导出当前所有查询结果，最多 20,000 笔；Excel 可直接打开。</p></article>
+</section>
+<section id="data" class="section" aria-label="数据导入">
+ <div class="help-grid"><article class="help-card"><i class="step">1</i><h3>下载模板</h3><p>每行一笔完整订单，填写九列中文字段。先删除模板的两行示例，再填自己的数据。</p><p class="spaced"><a class="button" href="/template.csv" download="智数订单导入模板.csv">↓ 下载 CSV 模板</a></p></article><article class="help-card"><i class="step">2</i><h3>选择并检查</h3><p>Excel 另存为“CSV UTF-8”。选择文件后先检查和预览，确认列名、日期与金额都正确。</p></article><article class="help-card"><i class="step">3</i><h3>确认后看结果</h3><p>确认导入后生成“我的导入数据”。每次上传都是完整数据表，旧版本保留；演示数据可随时切回。</p></article></div>
+ <article class="card spaced"><h2>选择订单表格</h2><p class="caption">仅支持 CSV，最多 5 MB、20,000 笔订单。金额为人民币；日期用 2026-01-01 这样的格式。</p><div class="upload-line spaced"><label for="import-file">订单 CSV 文件</label><input id="import-file" type="file" accept=".csv,text/csv"><button id="import-preview" class="button primary">检查并预览</button></div><p id="import-message" class="caption spaced" role="status" aria-live="polite">文件只保存在这台电脑，不上传外部服务器。</p>
+ <div id="import-preview-box" class="hidden"><div class="insight" id="import-summary"></div><div class="table-wrap spaced"><table><thead><tr><th>订单号</th><th>日期</th><th>省份</th><th>商品金额</th><th>状态</th></tr></thead><tbody id="import-samples"></tbody></table></div><p class="caption spaced">确认后，这张完整表格会成为当前“我的导入数据”；请先核对上面的总笔数、日期和金额。</p><button class="button primary spaced" id="import-confirm">确认导入并生成看板</button></div></article>
+ <article class="card spaced"><h2>填写时注意这几件事</h2><p class="caption">商品金额填写整笔订单的商品总额，不含运费；支付金额填写实际支付总额。一笔订单只占一行，并归到一个商品分类。多商品订单请先汇总，重复订单号会被拒绝。省份填写全称，如“广东省”“北京市”。状态只支持“已完成、已发货、处理中、已取消”。退款订单需要先明确业务口径，不能直接当作已完成。</p><p class="caption spaced">模板没有交付日期，系统会提示交付日期缺失；这不影响按“已完成”状态统计销售额，但不能据此分析物流时效。上传表格内容由提供者确认，系统不会把它标记为经过核实的真实交易。</p></article>
 </section>
 <section id="quality" class="section" aria-label="数据检查">
  <div class="insight" style="margin-top:0"><b>先看结论，再看细节</b><p id="quality-conclusion">正在检查…</p><p class="caption">这里检查的是全部数据。订单支付差异不等于亏损，系统也不会自动改动原始记录。</p></div>
@@ -57,14 +69,16 @@ main{padding-top:28px!important;padding-bottom:28px!important}.notice{display:fl
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=(v,d=0)=>v===null||v===undefined?'—':Number(v).toLocaleString('zh-CN',{minimumFractionDigits:d,maximumFractionDigits:d});
-let current=null, sequence=0;
-const titles={overview:['经营情况，一眼看清','不用写代码，选好月份和地区就能看结果。'],quality:['数据检查，看这里','异常有说明，结果有来处。'],help:['第一次使用，从这里开始','不用懂技术，跟着这三步就够了。']};
+let current=null, sequence=0, activeSource='demo';
+const titles={overview:['经营概览',''],lookup:['订单明细，随时可查','搜索编号、选择状态，找到具体订单并保存结果。'],data:['把自己的数据放进来','下载模板、检查表格、确认导入，三步生成看板。'],quality:['数据检查，看这里','异常有说明，结果有来处。'],help:['第一次使用，从这里开始','不用懂技术，跟着这三步就够了。']};
 const statusNames={matched:'金额一致',mismatch:'金额需要核对',missing_items:'缺少商品记录',missing_payment:'缺少支付记录',missing_both:'缺少商品和支付记录'};
 const ruleNames=['订单号有没有缺失','订单号有没有重复','商品记录有没有重复','商品记录能否找到订单','商品记录能否找到商品','订单能否找到买家','商品价格是否有效','运费是否有效','订单状态是否有效','下单时间是否有效','买家编号是否有效','商品编号是否有效','商品记录编号是否有效','支付金额是否有效','支付记录有没有重复或缺号','买家身份编号有没有缺失','交付时间是否完整合理','支付记录能否找到订单'];
 function tab(name){
+ document.body.dataset.page=name;
  document.querySelectorAll('.section').forEach(s=>s.classList.toggle('active',s.id===name));
  document.querySelectorAll('nav button').forEach(b=>{b.classList.toggle('active',b.dataset.tab===name);if(b.dataset.tab===name)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
  $('page-title').textContent=titles[name][0];$('subtitle').textContent=titles[name][1];window.scrollTo(0,0);
+ if(name==='lookup'&&current)loadOrders(1);
 }
 document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>tab(b.dataset.tab)));
 function monthLabel(value){return value?value.slice(0,4)+'年'+Number(value.slice(5,7))+'月':'全部月份'}
@@ -88,7 +102,7 @@ function trend(data){
  const dots=data.map((r,i)=>'<circle cx="'+points[i][0]+'" cy="'+points[i][1]+'" r="4" fill="#347951"><title>'+esc(monthLabel(r.month))+'：'+num(r.product_amount,2)+' '+esc(unit())+'，'+num(r.order_count)+' 单</title></circle>').join('');
  return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="每月商品销售额趋势"><defs><linearGradient id="fade" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#b9d69e" stop-opacity=".65"/><stop offset="1" stop-color="#edf4e4" stop-opacity=".15"/></linearGradient></defs>'+grid+'<path d="'+area+'" fill="url(#fade)"/><path d="'+path+'" fill="none" stroke="#377d54" stroke-width="2.6"/>'+dots+ticks+'</svg>';
 }
-function paramsFor(filters){const params=new URLSearchParams();for(const k of ['start','end','state'])if(filters[k])params.set(k,filters[k]);return params}
+function paramsFor(filters){const params=new URLSearchParams({source:activeSource});for(const k of ['start','end','state'])if(filters[k])params.set(k,filters[k]);return params}
 function selectedFilters(){
  const month=$('month').value;let start=null,end=null;
  if(month){const [year,monthNumber]=month.split('-').map(Number);start=month+'-01';end=month+'-'+new Date(Date.UTC(year,monthNumber,0)).getUTCDate()}
@@ -105,14 +119,14 @@ function syncControls(d){
 function render(d){
  current=d;syncControls(d);
  const m=d.metrics,sim=d.dataset.simulated,cny=d.dataset.currency==='CNY',pass=d.quality.filter(r=>!r.failed_count).length;
- $('source-tag').textContent=sim?'模拟数据':'历史数据';
- $('source-note').textContent=sim?'中国大陆电商演示 · 人民币 · 数据由程序生成，仅供学习，不代表真实经营。':d.dataset.description;
  $('date-range').textContent=(d.date_bounds.min||'暂无')+' 至 '+(d.date_bounds.max||'暂无');
  $('region-label').textContent=d.dataset.id==='china_demo'?'看哪个省':'看哪地区';
  const region=d.filters.state==='__unknown__'?'未填写地区':d.filters.state||(cny?'全部省份':'全部地区');
  $('scope').textContent='当前显示：'+monthLabel(d.filters.start?.slice(0,7))+' · '+region;
  $('currency-note').textContent='金额单位：'+d.dataset.currency_label+(cny?'（元）':'（'+d.dataset.currency+'）')+' · 已交付订单';
  $('amount').textContent=compactMoney(m.completed_product_amount);
+ $('amount').title=num(m.completed_product_amount,2)+' '+unit();$('aov').title=d.dataset.currency_label+' / 单';
+ $('aov-label').textContent='平均每单金额（'+unit()+'/单）';
  $('amount-exact').textContent=m.completed_product_amount===null?'当前范围暂无销售额':'精确金额 '+num(m.completed_product_amount,2)+' '+unit();
  $('orders').textContent=num(m.completed_order_count);$('aov').textContent=num(m.completed_average_order_value,2);$('aov-unit').textContent=d.dataset.currency_label+' / 单';$('buyers').textContent=num(m.completed_unique_customer_count);
  $('trend-unit').textContent='商品销售额 · 单位：万'+unit();$('trend').innerHTML=trend(d.monthly);$('regions').innerHTML=bars(d.regions,'state',6);$('categories').innerHTML=bars(d.categories,'category',5);
@@ -132,12 +146,13 @@ function render(d){
  $('dataset-description').textContent=d.dataset.description;$('help-source').textContent=d.dataset.description+(sim?' 所有订单、买家和交易均为虚构，省级地区使用真实名称。后续接入你的真实数据，需要先整理数据字段。':'');
  $('built-at').textContent=new Date(d.built_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false});
  $('run-id').textContent=d.run_id;$('fingerprint').textContent=d.input_fingerprint;$('model-counts').textContent=Object.entries(d.table_counts).map(([k,v])=>k+'：'+num(v)+' 行').join('；');
- $('footer-note').textContent=sim?'中国大陆模拟演示版 · 本地运行':'公开历史数据 · 本地运行';
+ $('footer-note').textContent='';
  const reportParams=paramsFor(d.filters);reportParams.set('run_id',d.run_id);
  $('download').href='/report.html?'+reportParams;$('download').setAttribute('aria-disabled','false');
+ renderTools(d);
 }
 function setBusy(busy){
- for(const key of ['month','state','reset','empty-reset'])$(key).disabled=busy||!current;
+ for(const key of ['month','state','reset','empty-reset','data-source'])$(key).disabled=busy||!current;
  $('busy').classList.toggle('hidden',!busy);$('overview').setAttribute('aria-busy',String(busy));
  $('download').setAttribute('aria-disabled',String(busy||!current));
 }
@@ -148,17 +163,18 @@ async function load(reset=false){
   const response=await fetch('/api/data?'+paramsFor(filters),{signal:controller.signal});
   const d=await response.json();if(request!==sequence)return;
   if(!response.ok)throw Error(d.error||'暂时无法读取数据');
-  render(d);
+  render(d);return true;
  }catch(e){
   if(request!==sequence)return;
   $('error-text').textContent=(e.name==='AbortError'?'读取时间较长，请检查启动窗口是否还开着。':e.message==='Failed to fetch'?'连接已断开，请重新双击“打开智数看板.cmd”。':e.message)+(current?' 下面仍显示上次成功加载的结果。':'');
-  $('error').classList.remove('hidden');if(current)syncControls(current);
+  $('error').classList.remove('hidden');if(current){activeSource=current.dataset.id==='customer_csv'?'customer':'demo';$('data-source').value=activeSource;syncControls(current)}return false;
  }finally{clearTimeout(timeout);if(request===sequence)setBusy(false)}
 }
 $('month').addEventListener('change',()=>load());$('state').addEventListener('change',()=>load());
 $('reset').addEventListener('click',()=>load(true));$('empty-reset').addEventListener('click',()=>load(true));$('retry').addEventListener('click',()=>load(!current));
 $('download').addEventListener('click',e=>{if($('download').getAttribute('aria-disabled')==='true')e.preventDefault()});
-load(true);
 </script>
+<script src="/tools.js"></script>
+<script>load(true);</script>
 </body>
 </html>
