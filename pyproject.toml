@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zhishu-inspection"
+version = "0.1.0"
+description = "Auditable e-commerce data quality and analysis portfolio project"
+requires-python = ">=3.11"
+dependencies = ["duckdb>=1.4,<2"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10"]
+
+[project.scripts]
+zhishu-profile = "zhishu_inspection.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
