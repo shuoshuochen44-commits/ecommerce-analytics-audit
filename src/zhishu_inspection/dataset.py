@@ -8,6 +8,12 @@ OLIST_DATASET = {
     "currency": "BRL", "currency_label": "巴西雷亚尔", "region_label": "州",
     "description": "来源：Olist 公开历史数据；不代表实时经营。",
 }
+FIXTURE_DATASET = {
+    "id": "olist_mini", "name": "手工电商测试样本", "simulated": True,
+    "currency": "BRL", "currency_label": "巴西雷亚尔", "region_label": "州",
+    "description": "模拟数据：仓库内手工编写的三笔订单，仅用于工程验收，不是真实 Olist 交易。",
+    "generator_version": "manual-1.0",
+}
 CHINA_DATASET = {
     "id": "china_demo", "name": "中国大陆电商模拟数据", "simulated": True,
     "currency": "CNY", "currency_label": "人民币", "region_label": "省级地区",
@@ -25,6 +31,6 @@ def read_dataset(raw_dir):
         value = json.loads(path.read_text(encoding="utf-8"))
     except (ValueError, UnicodeError) as error:
         raise ValueError("数据集说明无法读取") from error
-    if value not in (CHINA_DATASET, OLIST_DATASET):
+    if value not in (CHINA_DATASET, OLIST_DATASET, FIXTURE_DATASET):
         raise ValueError("数据集说明与支持的来源、币种或生成版本不一致")
     return value

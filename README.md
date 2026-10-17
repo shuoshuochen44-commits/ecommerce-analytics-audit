@@ -1,5 +1,16 @@
 # 智数：电商经营分析与数据质量监控
 
+本分支新增 **离线可审计问答内核**：30 条精确匹配的中文问题（21 条数据/质量计算、4 条口径说明、5 条明确拒答），保留实际 SQL、绑定参数、原始层独立核验、质量提示和可重放运行记录。此功能通过命令行使用，尚未接入看板或大模型。详见 [使用与安全边界](docs/auditable-analysis.md)。
+
+```powershell
+# 完成下文“新环境复现”中的安装后执行
+.\.venv\Scripts\python.exe scripts/verify_analysis.py --fixture-gold
+.\.venv\Scripts\python.exe -m zhishu_inspection.analysis_cli --list
+.\.venv\Scripts\python.exe -m zhishu_inspection.analysis_cli artifacts/analysis-acceptance "完成订单商品金额是多少"
+```
+
+以上验收仅使用仓库内自造小样本，产生本地模板工程验收报告，不代表模型或论文实验结果。
+
 默认打开中国大陆模拟经营演示版：31 个省级地区、8 个中文商品分类、人民币金额，页面和报告明确标注模拟数据。适合零基础用户直接查看经营结果。底层支持导入、明细建模、18 条质量检查、经营筛选、对账、来源证据和失败恢复。
 
 ## 立即使用
