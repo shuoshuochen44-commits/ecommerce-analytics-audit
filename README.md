@@ -1,19 +1,33 @@
 # 智数：电商经营分析与数据质量监控
 
-把 Olist 五张公开电商 CSV 加工为可核对的指标与中文看板。当前里程碑覆盖导入、明细建模、18 条质量检查、经营筛选、对账、来源证据、失败恢复与全量快照重建。
+默认打开中国大陆模拟经营演示版：31 个省级地区、8 个中文商品分类、人民币金额，页面和报告明确标注模拟数据。适合零基础用户直接查看经营结果。底层支持导入、明细建模、18 条质量检查、经营筛选、对账、来源证据和失败恢复。
 
 ## 立即使用
 
-Windows 已有本地环境时，双击 `start-dashboard.cmd`，保持终端窗口打开，然后访问 [本地看板](http://127.0.0.1:8765)。页面包括经营概览、质量报告和数据证据。
+Windows 已有本地环境时，双击 **打开智数看板.cmd**。首次自动生成数据、检查并打开浏览器；以后直接打开。使用期间保持启动窗口开启。也可访问 [本地看板](http://127.0.0.1:8765)。无需注册账号或操作数据库。
 
-也可以在项目目录执行：
+1. 首页自动显示全部经营结果。
+2. 选择月份或省份，结果自动更新；点击“恢复全部”回到初始状态。
+3. 点击“保存当前报告”下载 HTML 文件，双击即可阅读，也可通过浏览器打印成 PDF。
+
+页面内有“使用说明”和“数据检查”。下载报告固定使用当前页面的数据版本和筛选范围；技术检查报告覆盖全批次。
+
+演示数据独立生成，覆盖 2026 年 1—9 月，共 12,000 笔订单；买家、订单和交易全部虚构。金额从人民币分直接生成，不是汇率换算；31 个地区的分布与排名不代表真实市场。包含少量人为设置的异常练习样例。原始演示文件存放在 `data/raw/china_demo/`，独立发布在 `artifacts/china-demo/`。生成器拒绝覆盖已有目录。
+
+```powershell
+.\.venv\Scripts\python.exe -m zhishu_inspection.launcher
+```
+
+## 保留的 Olist 真实历史数据版本
+
+原始巴西数据及其成果仍独立保留，币种仍是 BRL。需要运行这个版本时，在另一个端口启动：
 
 ```powershell
 .\.venv\Scripts\python.exe -m zhishu_inspection.pipeline data/raw/olist artifacts/analytics
-.\.venv\Scripts\python.exe -m zhishu_inspection.server artifacts/analytics --port 8765
+.\.venv\Scripts\python.exe -m zhishu_inspection.server artifacts/analytics --port 8766
 ```
 
-默认仅接受本机访问。若端口已在使用，使用 `--port 8766` 并打开相应地址。Ctrl+C 停止服务。重新导入时可在另一个终端运行加工命令；网页重新应用筛选后读取新成功批次。
+服务仅接受本机访问。Ctrl+C 停止服务。重新导入时可在另一个终端运行加工命令；网页更改筛选或点击“恢复全部”后读取新成功批次。
 
 ## 新环境复现
 
@@ -26,7 +40,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-从 [Olist 发布页](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce) 获取数据，解压这五个文件到 `data/raw/olist/`：
+国内模拟版无需下载外部数据；环境安装后直接运行 launcher。需要复现原始巴西历史版时，从 [Olist 发布页](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce) 获取数据，解压这五个文件到 `data/raw/olist/`：
 
 - olist_orders_dataset.csv
 - olist_order_items_dataset.csv
@@ -64,9 +78,9 @@ CSV → raw_* → 质量检查 → dim_* / dwd_* → dws_daily_state / ads_overv
                           中文看板 / 运行报告 / 清单
 ```
 
-每次运行保存独立 run_id。`artifacts/analytics/latest.json` 只指向成功批次；批次目录保留 data.duckdb、manifest.json、quality.json、summary.json 和 report.md。错误批次不替换旧结果。所有生成数据均被 Git 忽略。
+每次运行保存独立 run_id。各输出目录的 `latest.json` 只指向成功批次；批次目录保留 data.duckdb、manifest.json、quality.json、summary.json 和 report.md。错误批次不替换旧结果。国内模拟版的 dataset.json 也参与输入哈希，来源、模拟标记和币种进入清单、API 与报告。所有生成数据均被 Git 忽略。
 
-数据模型、字段粒度、质量策略和指标口径见 [数据模型文档](docs/data-model.md)。页面中的质量结果与下载报告覆盖全批次，不随经营筛选变化。边界月份可能不完整，不能直接解读为完整月环比。
+数据模型、字段粒度、质量策略和指标口径见 [数据模型文档](docs/data-model.md)。页面中的质量结果与技术报告覆盖全批次；“保存当前报告”的经营指标、趋势和排名跟随筛选。边界月份可能不完整，不能直接解读为完整月环比。
 
 ## 实测验收与分析简报
 
@@ -78,6 +92,6 @@ CSV → raw_* → 质量检查 → dim_* / dwd_* → dws_daily_state / ads_overv
 
 ## 工程边界
 
-这是本地单用户的公开历史数据分析版本。当前提供固定模板只读查询；未加入未知表结构上传、自然语言 SQL、实时采集或增量更新。每次全量重建生成新目录，需要保留磁盘空间。这里只固定已验证的直接依赖；尚未提供完整跨平台依赖锁或容器镜像。
+这是本地单用户的模拟经营/历史数据分析版本。当前提供固定模板只读查询；真实业务数据接入需要先映射字段，不支持任意表结构上传、实时采集或增量更新。每次全量重建生成新目录，需要保留磁盘空间。这里只固定已验证的直接依赖；尚未提供完整跨平台依赖锁或容器镜像。
 
 早期 profile、build-db 和 week2 命令仍可使用；开发工作现按可用里程碑持续推进。

@@ -13,6 +13,7 @@ from pathlib import Path
 import duckdb
 
 from .database import build_database
+from .dataset import OLIST_DATASET, read_dataset
 from .manifest import EXPECTED_FILES, validate_raw_files
 from .modeling import build_models, json_value
 from .quality import evaluate_quality
@@ -29,7 +30,10 @@ def write_json(path, value):
 def input_files(raw_dir):
     validate_raw_files(raw_dir)
     records = []
-    for name in EXPECTED_FILES:
+    names = list(EXPECTED_FILES)
+    if (raw_dir / "dataset.json").exists():
+        names.append("dataset.json")
+    for name in names:
         path = raw_dir / name
         digest = hashlib.sha256()
         with path.open("rb") as source:
@@ -39,13 +43,14 @@ def input_files(raw_dir):
     return records
 
 
-def load_snapshot(output_root):
+def load_snapshot(output_root, run_id=None):
     output_root = Path(output_root).resolve()
     pointer = output_root / "latest.json"
-    if not pointer.is_file():
-        raise FileNotFoundError("No published snapshot. Run zhishu-build first.")
-    latest = json.loads(pointer.read_text(encoding="utf-8"))
-    run_id = latest["run_id"]
+    if run_id is None:
+        if not pointer.is_file():
+            raise FileNotFoundError("No published snapshot. Run zhishu-build first.")
+        latest = json.loads(pointer.read_text(encoding="utf-8"))
+        run_id = latest["run_id"]
     if not re.fullmatch(r"\d{8}T\d{6}Z_[0-9a-f]{12}", run_id):
         raise ValueError("Invalid published run identifier")
     directory = output_root / "runs" / run_id
@@ -58,11 +63,14 @@ def load_snapshot(output_root):
 
 
 def render_report(manifest, result):
+    dataset = manifest.get("dataset", OLIST_DATASET)
+    currency = dataset["currency_label"] + " " + dataset["currency"]
     lines = ["# 电商经营分析与质量验收报告", "",
+             dataset["description"], "",
              f"批次：`{manifest['run_id']}`", "",
              f"输入指纹：`{manifest['input_fingerprint']}`", "",
              "## 核心指标", "", "| 指标 | 结果 |", "|---|---:|"]
-    labels = ("完成订单商品金额（BRL，不含运费）", "完成订单数", "商品金额客单价（BRL）", "唯一购买客户数")
+    labels = (f"完成订单商品金额（{currency}，不含运费）", "完成订单数", f"商品金额客单价（{currency}）", "唯一购买客户数")
     for label, value in zip(labels, result["metrics"].values()):
         lines.append(f"| {label} | {value if value is not None else '无可用值'} |")
     lines += ["", "## 数据质量", "", "| 规则 | 检查 | 失败/总记录 | 策略 |", "|---|---|---:|---|"]
@@ -78,8 +86,8 @@ def render_report(manifest, result):
         lines.append(f"| {name} | {count} |")
     lines += ["", "四项明细层指标已与独立原始层 SQL 逐项对照通过。商品与支付分别聚合到订单后关联。", "",
               "## 口径与限制", "",
-              "- 金额只包含已交付订单商品价格，以购买日期归属；按快照最终状态回看历史，币种为巴西雷亚尔 BRL。",
-              "- 客户数在每个查询范围内独立去重；各月或各州的客户数不能直接相加。",
+              f"- 金额只包含已交付订单商品价格，以购买日期归属；按快照最终状态回看历史，币种为{currency}。",
+              "- 客户数在每个查询范围内独立去重；各月或各地区的客户数不能直接相加。",
               "- 品类订单数不可跨品类相加；无商品明细的订单保留在订单数分母中。",
               "- 支付差异是待核查记录，不能直接当作损失；分析金额不代表财务收入或利润。",
               "- 日期边界月份可能不完整，且以已交付状态回看会产生近期订单状态偏差。",
@@ -103,6 +111,7 @@ def run_pipeline(raw_dir: Path, output_root: Path):
     write_json(directory / "manifest.json", manifest)
     try:
         files = input_files(raw_dir)
+        manifest["dataset"] = read_dataset(raw_dir)
         fingerprint = hashlib.sha256(json.dumps(files, sort_keys=True).encode()).hexdigest()
         manifest.update(inputs=files, input_fingerprint=fingerprint)
         raw_counts = build_database(raw_dir, directory / "data.duckdb")

@@ -33,10 +33,38 @@ def test_http_page_api_filters_and_report(live_server):
         assert "验收报告" in response.read().decode("utf-8")
 
 
+def test_downloadable_report_uses_the_selected_scope(live_server):
+    with urllib.request.urlopen(live_server + "/report.html?state=SP&end=2018-01-31") as response:
+        report = response.read().decode("utf-8")
+        assert "text/html" in response.headers["Content-Type"]
+        assert "attachment" in response.headers["Content-Disposition"]
+        assert "2018-01-31" in report and "SP" in report
+        assert "150.00" in report and "巴西雷亚尔" in report
+
+
+def test_report_stays_on_displayed_snapshot_after_rebuild(live_server, tmp_path):
+    import shutil
+    with urllib.request.urlopen(live_server + "/api/data") as response:
+        original = json.load(response)
+    raw = tmp_path / "changed"
+    shutil.copytree("tests/fixtures/olist_mini", raw)
+    items = raw / "olist_order_items_dataset.csv"
+    items.write_text(items.read_text().replace("100.00", "200.00"), encoding="utf-8")
+    newer = run_pipeline(raw, tmp_path)
+    assert newer["metrics"] != original["metrics"]
+    with urllib.request.urlopen(live_server + "/report.html?run_id=" + original["run_id"]) as response:
+        report = response.read().decode("utf-8")
+        assert original["run_id"] in report
+        assert newer["run_id"] not in report
+        assert original["metrics"]["completed_product_amount"] in report
+
+
 @pytest.mark.parametrize("path,status", [
     ("/api/data?start=oops", 400),
     ("/api/data?state=SP&state=RJ", 400),
     ("/api/data?sql=DROP", 400),
+    ("/report.html?state=SP&state=RJ", 400),
+    ("/report.html?run_id=../../invalid", 400),
     ("/../../pyproject.toml", 404),
 ])
 def test_http_invalid_requests(live_server, path, status):

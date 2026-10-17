@@ -1,13 +1,20 @@
 """Loopback-only HTTP entry point, exposing fixed read-only queries."""
 
 import argparse
+import hashlib
 import json
+import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 from .analytics import dashboard_data
 from .pipeline import load_snapshot
+from .reports import user_report
+
+
+def server_identity(output_root):
+    return hashlib.sha256(os.path.normcase(str(Path(output_root).resolve())).encode("utf-8")).hexdigest()
 
 
 def create_server(output_root, port=8765):
@@ -15,10 +22,12 @@ def create_server(output_root, port=8765):
     page = Path(__file__).with_name("web") / "dashboard.html"
 
     class Handler(BaseHTTPRequestHandler):
-        def send_content(self, status, body, content_type):
+        def send_content(self, status, body, content_type, download=None):
             self.send_response(status)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
+            if download:
+                self.send_header("Content-Disposition", f'attachment; filename="{download}"')
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("X-Frame-Options", "DENY")
@@ -37,14 +46,22 @@ def create_server(output_root, port=8765):
             try:
                 if parsed.path == "/":
                     self.send_content(200, page.read_bytes(), "text/html; charset=utf-8")
-                elif parsed.path == "/api/data":
+                elif parsed.path in ("/api/data", "/report.html"):
                     if len(parsed.query) > 1024:
                         raise ValueError("筛选参数过长")
                     query = parse_qs(parsed.query, keep_blank_values=True, max_num_fields=10)
-                    if set(query) - {"start", "end", "state"} or any(len(v) != 1 for v in query.values()):
-                        raise ValueError("筛选仅支持 start、end、state，且不能重复")
+                    allowed = {"start", "end", "state"}
+                    if parsed.path == "/report.html":
+                        allowed.add("run_id")
+                    if set(query) - allowed or any(len(v) != 1 for v in query.values()):
+                        raise ValueError("筛选包含不支持的选项或重复值，请重新选择")
                     filters = {key: value[0] or None for key, value in query.items()}
-                    self.send_json(200, dashboard_data(root, **filters))
+                    data = dashboard_data(root, **filters)
+                    if parsed.path == "/report.html":
+                        self.send_content(200, user_report(data).encode("utf-8"), "text/html; charset=utf-8", "zhishu-report.html")
+                    else:
+                        data["server_identity"] = server_identity(root)
+                        self.send_json(200, data)
                 elif parsed.path in ("/report.md", "/manifest.json"):
                     snapshot = load_snapshot(root)
                     filename = parsed.path.removeprefix("/")
@@ -55,12 +72,12 @@ def create_server(output_root, port=8765):
                 else:
                     self.send_json(404, {"error": "页面不存在"})
             except FileNotFoundError:
-                self.send_json(503, {"error": "尚无可用快照，请先运行 zhishu-build 原始数据目录。"})
+                self.send_json(503, {"error": "数据还没准备好。请双击项目里的“打开智数看板.cmd”，等待提示看板已就绪后再试。"})
             except ValueError as error:
                 self.send_json(400, {"error": str(error)})
             except Exception as error:
                 self.log_error("query failed: %s", error)
-                self.send_json(500, {"error": "读取批次失败，请检查本地运行日志后重建。"})
+                self.send_json(500, {"error": "暂时无法读取数据。请重新打开看板；仍有问题时，把启动窗口的提示发给我。"})
 
     return ThreadingHTTPServer(("127.0.0.1", port), Handler)
 

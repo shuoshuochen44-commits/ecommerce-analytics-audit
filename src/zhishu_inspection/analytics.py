@@ -5,6 +5,7 @@ from datetime import date
 import duckdb
 
 from .modeling import json_value
+from .dataset import OLIST_DATASET
 from .pipeline import load_snapshot
 
 
@@ -27,13 +28,14 @@ def validate_dates(start, end):
         raise ValueError("开始日期不能晚于结束日期")
 
 
-def dashboard_data(output_root, start=None, end=None, state=None):
+def dashboard_data(output_root, start=None, end=None, state=None, run_id=None):
     validate_dates(start, end)
-    snapshot = load_snapshot(output_root)
+    snapshot = load_snapshot(output_root, run_id=run_id)
     connection = duckdb.connect(str(snapshot["directory"] / "data.duckdb"), read_only=True)
     try:
         bounds = connection.execute("SELECT min(purchase_date), max(purchase_date) FROM dwd_orders").fetchone()
         states = [r[0] for r in connection.execute("SELECT DISTINCT customer_state FROM dwd_orders WHERE customer_state IS NOT NULL ORDER BY 1").fetchall()]
+        months = [r[0] for r in connection.execute("SELECT DISTINCT strftime(purchase_date, '%Y-%m') FROM dwd_orders ORDER BY 1").fetchall()]
         if state and state != "__unknown__" and state not in states:
             raise ValueError("请选择数据中存在的地区")
         conditions, parameters = ["o.order_status='delivered'"], []
@@ -76,6 +78,8 @@ def dashboard_data(output_root, start=None, end=None, state=None):
     finally:
         connection.close()
     return {
+        "dataset": snapshot["manifest"].get("dataset", dict(OLIST_DATASET)),
+        "available_months": months,
         "run_id": snapshot["run_id"], "built_at": snapshot["manifest"]["finished_at"],
         "input_fingerprint": snapshot["summary"]["input_fingerprint"],
         "filters": {"start": start, "end": end, "state": state},
