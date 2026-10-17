@@ -14,6 +14,7 @@ dev = ["pytest>=8,<10"]
 
 [project.scripts]
 zhishu-profile = "zhishu_inspection.cli:main"
+zhishu-build-db = "zhishu_inspection.database:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
