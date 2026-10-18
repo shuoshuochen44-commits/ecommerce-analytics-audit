@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import socket
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -14,6 +15,8 @@ from .pipeline import load_snapshot
 from .reports import user_report
 from .csv_import import MAX_BYTES, preview_csv, import_csv, template_csv
 from .order_queries import order_data, export_orders
+from .source_manager import SourceManager
+from .source_http import source_post, source_get
 
 
 def server_identity(output_root):
@@ -24,6 +27,7 @@ def create_server(output_root, port=8765):
     root = Path(output_root).resolve()
     page = Path(__file__).with_name("web") / "dashboard.html"
     import_lock = threading.Lock()
+    manager=SourceManager(root)
 
     class Handler(BaseHTTPRequestHandler):
         def send_content(self, status, body, content_type, download=None):
@@ -50,9 +54,14 @@ def create_server(output_root, port=8765):
                 raise ValueError("筛选包含不支持的选项或重复值，请重新选择")
             values = {key: value[0] for key, value in query.items()}
             source = values.pop("source", "demo")
-            if source not in ("demo", "customer"):
+            if source.startswith('src_'):
+                selected_root=manager.output_for(source)
+            elif source in ('demo','customer'):
+                selected_root=root/'customer-data' if source=='customer' else root
+            else:
                 raise ValueError("数据来源无效，请重新选择")
-            return (root / "customer-data" if source == "customer" else root), values
+            self.selected_source=source
+            return selected_root, values
 
         def do_POST(self):
             host = self.headers.get("Host", "")
@@ -60,6 +69,12 @@ def create_server(output_root, port=8765):
                     or self.headers.get("X-Zhishu-Local") != "1"
                     or self.headers.get("Origin", "http://" + host) != "http://" + host):
                 self.send_json(403, {"error": "只能从本机看板提交数据"})
+                return
+            if self.path=='/api/application/exit':
+                self.send_json(200,{'stopped':True})
+                threading.Thread(target=self.server.shutdown,daemon=True).start()
+                return
+            if source_post(self,manager):
                 return
             if self.path not in ("/api/import/preview", "/api/import/confirm"):
                 self.send_json(404, {"error": "页面不存在"})
@@ -109,9 +124,14 @@ def create_server(output_root, port=8765):
                 return
             parsed = urlsplit(self.path)
             try:
+                if parsed.path=='/api/health':
+                    self.send_json(200,{'server_identity':server_identity(root),'application':'zhishu'})
+                    return
+                if source_get(self,manager,parsed):
+                    return
                 if parsed.path == "/":
                     self.send_content(200, page.read_bytes(), "text/html; charset=utf-8")
-                elif parsed.path in ("/tools.js", "/tools.css"):
+                elif parsed.path in ("/tools.js", "/tools.css", "/connections.js", "/connections.css"):
                     content_type = "text/javascript; charset=utf-8" if parsed.path.endswith('.js') else "text/css; charset=utf-8"
                     self.send_content(200, (page.parent / parsed.path[1:]).read_bytes(), content_type)
                 elif parsed.path in ("/api/data", "/report.html"):
@@ -119,12 +139,14 @@ def create_server(output_root, port=8765):
                     if parsed.path == "/report.html":
                         allowed.add("run_id")
                     selected_root, filters = self.read_query(parsed, allowed)
-                    data = dashboard_data(selected_root, **{k: v or None for k,v in filters.items()})
+                    data = dashboard_data(selected_root, allow_absent_state=self.selected_source.startswith('src_'), **{k: v or None for k,v in filters.items()})
                     if parsed.path == "/report.html":
                         self.send_content(200, user_report(data).encode("utf-8"), "text/html; charset=utf-8", "zhishu-report.html")
                     else:
                         data["server_identity"] = server_identity(root)
                         data["customer_available"] = (root / "customer-data/latest.json").exists()
+                        data['active_source']=self.selected_source
+                        data['source_status']=manager.get(self.selected_source) if self.selected_source.startswith('src_') else None
                         self.send_json(200, data)
                 elif parsed.path in ("/api/orders", "/orders.csv"):
                     selected_root, filters = self.read_query(parsed, {"start", "end", "state", "search", "status", "page", "run_id"})
@@ -153,7 +175,29 @@ def create_server(output_root, port=8765):
                 self.log_error("query failed: %s", error)
                 self.send_json(500, {"error": "暂时无法读取数据。请重新打开看板；仍有问题时，把启动窗口的提示发给我。"})
 
-    return ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    class InspectionServer(ThreadingHTTPServer):
+        daemon_threads=True
+        block_on_close=False
+        allow_reuse_address=False
+
+        def server_bind(self):
+            if os.name=='nt':
+                self.socket.setsockopt(socket.SOL_SOCKET,socket.SO_EXCLUSIVEADDRUSE,1)
+            super().server_bind()
+
+        def server_close(self):
+            manager.close()
+            super().server_close()
+
+    try:
+        server=InspectionServer(('127.0.0.1',port),Handler)
+    except Exception:
+        manager.close()
+        raise
+    server.source_manager=manager
+    server.event_slots=threading.BoundedSemaphore(8)
+    manager.start()
+    return server
 
 
 def main():

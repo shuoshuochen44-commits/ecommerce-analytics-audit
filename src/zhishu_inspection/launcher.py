@@ -1,4 +1,4 @@
-"""One-click startup for the independent domestic demo."""
+"""One-click startup with an empty workspace; data is always user-selected."""
 
 import argparse
 import json
@@ -10,6 +10,7 @@ from .china_demo import generate_demo
 from .dataset import CHINA_DATASET, read_dataset
 from .pipeline import load_snapshot, run_pipeline
 from .server import create_server, server_identity
+from .resources import project_directory
 
 
 def prepare_demo(project):
@@ -40,26 +41,50 @@ def existing_demo(url, output_root):
         return False
 
 
-def main():
-    parser = argparse.ArgumentParser(description="一键打开中国大陆模拟经营看板")
-    parser.add_argument("--port", type=int, default=8765)
-    parser.add_argument("--no-browser", action="store_true")
-    args = parser.parse_args()
-    url = f"http://127.0.0.1:{args.port}/"
-    project = Path(__file__).resolve().parents[2]
-    if existing_demo(url, project / "artifacts/china-demo"):
-        print("看板已经启动，正在为你打开。", flush=True)
-        if not args.no_browser:
-            webbrowser.open(url)
-        return
+def prepare_workspace(project):
+    output=Path(project)/'workspace'
+    output.mkdir(parents=True,exist_ok=True)
+    return output
+
+
+def existing_workspace(url,output_root):
+    opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
     try:
-        output = prepare_demo(project)
-        server = create_server(output, args.port)
-    except OSError as error:
-        parser.exit(1, f"暂时无法启动：{error}\n若地址被占用，请关闭旧看板的启动窗口，再双击一次。\n")
+        with opener.open(url+'api/health',timeout=1) as response:
+            data=json.load(response)
+        return data.get('server_identity')==server_identity(output_root)
+    except (OSError,ValueError):
+        return False
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="智数巡检")
+    parser.add_argument("--port", type=int)
+    parser.add_argument("--no-browser", action="store_true")
+    parser.add_argument('--data-dir',type=Path)
+    args = parser.parse_args(argv)
+    project=project_directory()
+    output=args.data_dir or prepare_workspace(project)
+    ports=[args.port] if args.port is not None else range(8765,8775)
+    for port in ports:
+        url=f'http://127.0.0.1:{port}/'
+        if existing_workspace(url,output):
+            if not args.no_browser:webbrowser.open(url)
+            return
+    server=None
+    try:
+        for port in ports:
+            try:
+                server=create_server(output,port)
+                break
+            except OSError:
+                continue
+        if server is None:
+            parser.exit(1,'端口暂时不可用，请关闭旧程序后重试。\n')
     except Exception as error:
-        parser.exit(1, f"准备数据时遇到问题：{error}\n请把这条提示发给我处理。\n")
-    print(f"看板已就绪：{url}\n浏览器会自动打开；没有打开时可复制上面的网址。\n使用期间请保留此窗口，退出时关闭窗口即可。", flush=True)
+        parser.exit(1, f"启动未完成：{error}\n")
+    url=f'http://127.0.0.1:{server.server_address[1]}/'
+    print(f'智数巡检：{url}',flush=True)
     if not args.no_browser:
         webbrowser.open(url)
     try:

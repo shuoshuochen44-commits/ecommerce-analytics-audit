@@ -34,7 +34,7 @@ function renderTools(d){
 
 function orderParams(page){
  const params=paramsFor(current.filters);params.set('run_id',current.run_id);
- params.set('source',current.dataset.id==='customer_csv'?'customer':'demo');
+ params.set('source',current.active_source||activeSource);
  params.set('search',$('order-search').value.trim());params.set('status',$('order-status').value);
  if(page)params.set('page',page);return params;
 }
@@ -100,6 +100,6 @@ $('import-confirm').addEventListener('click',async()=>{
  try{
   await submitImport('/api/import/confirm',uploadContent);activeSource='customer';
   const loaded=await load(true);uploadContent=null;$('import-preview-box').classList.add('hidden');
-  importMessage('导入成功，可通过页面上方切换“我的导入数据”和演示数据。');if(loaded)tab('overview');
+  importMessage('导入成功，可在页面上方切换已接入的数据。');if(loaded)tab('overview');
  }catch(e){importMessage(e.message,true)}finally{setImportBusy(false)}
 });

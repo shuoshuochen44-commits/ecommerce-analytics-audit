@@ -4,9 +4,10 @@ from decimal import Decimal
 from pathlib import Path
 
 from .quality import evaluate_quality
+from .resources import resource_path
 
 
-SQL_ROOT = Path(__file__).resolve().parents[2] / "sql"
+SQL_ROOT = resource_path('sql')
 MODEL_TABLES = ("dim_customer_mapping", "dim_products", "dwd_order_items",
                 "dwd_order_payments", "dwd_orders", "dws_daily_state")
 METRICS = ("completed_product_amount", "completed_order_count",

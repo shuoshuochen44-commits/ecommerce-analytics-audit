@@ -23,14 +23,10 @@ def template_csv():
     target = io.StringIO(newline="")
     writer = csv.writer(target)
     writer.writerow(COLUMNS)
-    writer.writerows((
-        ("示例订单001", "2026-01-01", "广东省", "示例买家001", "食品饮料", "100.00", "5.00", "105.00", "已完成"),
-        ("示例订单002", "2026-02-28", "浙江省", "示例买家002", "家居日用", "200.00", "0.00", "200.00", "已完成"),
-    ))
     return target.getvalue().encode("utf-8-sig")
 
 
-def parse_csv(content):
+def parse_csv(content, *, allow_empty=False):
     if not content or len(content) > MAX_BYTES:
         raise ValueError("请选择非空 CSV 文件，大小不能超过 5 MB")
     try:
@@ -78,7 +74,7 @@ def parse_csv(content):
             records.append(row)
     except csv.Error:
         raise ValueError("CSV 格式损坏，请用 Excel 重新另存为 CSV UTF-8") from None
-    if not records:
+    if not records and not allow_empty:
         raise ValueError("文件没有订单，请填写数据后再导入")
     return records
 
@@ -90,8 +86,8 @@ def preview_csv(content):
             "completed_amount": f"{sum((Decimal(r['商品金额']) for r in records if r['订单状态']=='已完成'), Decimal(0)):.2f}"}
 
 
-def import_csv(content, output_root):
-    records = parse_csv(content)
+def import_csv(content, output_root, *, allow_empty=False, provenance=None):
+    records = parse_csv(content, allow_empty=allow_empty)
     raw = Path(output_root) / "raw" / uuid.uuid4().hex
     raw.mkdir(parents=True, exist_ok=False)
     orders, items, customers, products, payments = [], [], [], [], []
@@ -117,4 +113,6 @@ def import_csv(content, output_root):
             writer.writerows(rows)
     (raw / "dataset.json").write_text(json.dumps(CUSTOMER_DATASET, ensure_ascii=False, indent=2), encoding="utf-8")
     (raw / "source.csv").write_bytes(content)
+    if provenance is not None:
+        (raw / "source_manifest.json").write_text(json.dumps(provenance,ensure_ascii=False,sort_keys=True,allow_nan=False),encoding="utf-8")
     return run_pipeline(raw, output_root)

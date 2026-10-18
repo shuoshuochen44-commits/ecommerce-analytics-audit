@@ -67,7 +67,7 @@ def month_comparison(connection, metrics, bounds, start, end, state):
             "changes": changes, "note": "两期均按当前地区重新统计；日期覆盖不保证源交易完整"}
 
 
-def dashboard_data(output_root, start=None, end=None, state=None, run_id=None):
+def dashboard_data(output_root, start=None, end=None, state=None, run_id=None, *, allow_absent_state=False):
     validate_dates(start, end)
     snapshot = load_snapshot(output_root, run_id=run_id)
     connection = duckdb.connect(str(snapshot["directory"] / "data.duckdb"), read_only=True)
@@ -75,7 +75,9 @@ def dashboard_data(output_root, start=None, end=None, state=None, run_id=None):
         bounds = connection.execute("SELECT min(purchase_date), max(purchase_date) FROM dwd_orders").fetchone()
         states = [r[0] for r in connection.execute("SELECT DISTINCT customer_state FROM dwd_orders WHERE customer_state IS NOT NULL ORDER BY 1").fetchall()]
         months = [r[0] for r in connection.execute("SELECT DISTINCT strftime(purchase_date, '%Y-%m') FROM dwd_orders ORDER BY 1").fetchall()]
-        if state and state != "__unknown__" and state not in states:
+        if state and (len(state)>80 or any(ord(c)<32 for c in state)):
+            raise ValueError("地区筛选格式不正确")
+        if state and state != "__unknown__" and state not in states and not allow_absent_state:
             raise ValueError("请选择数据中存在的地区")
         conditions, parameters = ["o.order_status='delivered'"], []
         if start:
