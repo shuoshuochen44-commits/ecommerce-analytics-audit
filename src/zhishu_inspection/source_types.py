@@ -13,8 +13,16 @@ class TableData:
     columns: tuple[str,...]
     rows: list[tuple]
     origin: dict
+    # Actual physical file/worksheet lines, when the adapter can identify them.
+    # Other tables retain virtual header + record ordinals for diagnostics.
+    row_numbers: list[int] | None = None
 
     def __post_init__(self):
+        if self.row_numbers is not None:
+            if (len(self.row_numbers)!=len(self.rows)
+                    or any(type(number) is not int or number<1 for number in self.row_numbers)
+                    or any(left>=right for left,right in zip(self.row_numbers,self.row_numbers[1:]))):
+                raise ValueError('来源行号必须与数据记录一一对应且严格递增')
         if not 0<len(self.columns)<=MAX_COLUMNS:
             raise ValueError('表格列数必须在 1 到 200 之间')
         if any(not isinstance(c,str) or not c.strip() or len(c)>200 or any(ord(x)<32 for x in c) for c in self.columns):

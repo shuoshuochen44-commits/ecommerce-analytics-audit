@@ -6,7 +6,7 @@ from urllib.parse import unquote
 from .csv_import import COLUMNS
 from .database_sources import database_capabilities
 from .source_types import MAX_BYTES
-from .tabular_mapping import suggest_mapping
+from .tabular_mapping import MappingValidationError, suggest_mapping
 
 
 def source_post(handler,manager):
@@ -47,7 +47,12 @@ def source_post(handler,manager):
                 if set(data)-{'source_id','table','schema'}:
                     raise ValueError('不支持的预览参数')
                 preview=manager.preview(source_id,table=data.get('table'),schema=data.get('schema'))
-                result={'preview':preview,'suggested_mapping':suggest_mapping(preview['columns'])}
+                result={'preview':preview,'suggested_mapping':suggest_mapping(preview['columns']),
+                        'remembered_mapping':preview['remembered_mapping'],'mapping_origin':preview['mapping_origin']}
+            elif path=='/api/sources/validate':
+                if set(data)-{'source_id','table','schema','mapping'}:
+                    raise ValueError('不支持的数据检查参数')
+                result={'validation':manager.validate(source_id,**{k:v for k,v in data.items() if k!='source_id'})}
             elif path=='/api/sources/configure':
                 if set(data)-{'source_id','table','schema','mapping','refresh'}:
                     raise ValueError('不支持的字段映射或刷新设置')
@@ -69,6 +74,8 @@ def source_post(handler,manager):
                 handler.send_json(404,{'error':'接口不存在'})
                 return True
         handler.send_json(200,result)
+    except MappingValidationError as error:
+        handler.send_json(400,{'error':'映射后数据校验未通过，请按行列提示修改来源数据。','diagnostics':error.diagnostics})
     except ValueError as error:
         handler.send_json(400,{'error':str(error)[:300] or '接入设置或文件校验未通过'})
     except (TypeError,UnicodeError):

@@ -17,7 +17,7 @@ from .query_gateway import SCHEMA, execute_readonly, validate_sql
 from .question_catalog import resolve_question, validate_filters, prepare_query
 
 
-VERSION = 'offline-templates-1.0'
+VERSION = 'offline-templates-1.1'
 
 
 def digest(value):
@@ -110,6 +110,9 @@ def analyze(output_root,question_text,*,start=None,end=None,state=None,snapshot_
             if question.kind=='refusal':
                 response['answer']=question.definition
                 response['verification']={'matched':None,'method':'explicit_refusal'}
+            elif question.dimension=='product' and snapshot['manifest']['dataset']['id']=='customer_csv':
+                response['answer']='当前订单汇总表未提供真实商品编号，无法计算商品排名；可以改查各品类排名。'
+                response['verification']={'matched':None,'method':'explicit_refusal'}
             elif question.kind=='knowledge':
                 response['verification_status']='not_applicable'
                 response['verification']={'matched':None,'method':'versioned_definition'}
@@ -135,6 +138,7 @@ def analyze(output_root,question_text,*,start=None,end=None,state=None,snapshot_
                 response['stages'].append({'stage':'verification','status':response['verification_status']})
                 if not matched:
                     response['answer']='独立核验不一致，当前结果已阻止用于业务结论，请核查数据快照与查询。'
+                    response['result']=[]
                 else:
                     summary = (str(response['result'][0]['value']) if len(response['result'])==1 and set(response['result'][0])=={'value'}
                                else f"返回 {len(response['result'])} 行聚合结果，详见 result。")
@@ -169,6 +173,8 @@ def replay(output_root,run_id):
     original = get_run(output_root,run_id)
     if original['kernel_version']!=VERSION or original['question_id'] is None or not original['snapshot_run_id']:
         raise ValueError('该运行不可由当前内核重放')
+    if set(original.get('filters', {})) != {'start', 'end', 'state'}:
+        raise ValueError('筛选校验未通过的运行不可重放，请重新选择有效筛选后分析')
     if original['engine_versions'] != {'duckdb':duckdb.__version__,'sqlglot':sqlglot.__version__} or original['schema_sha256'] != digest(SCHEMA):
         raise ValueError('重放需要相同引擎版本和字段策略')
     snapshot = load_snapshot(output_root,run_id=original['snapshot_run_id'])

@@ -17,6 +17,7 @@ from .csv_import import MAX_BYTES, preview_csv, import_csv, template_csv
 from .order_queries import order_data, export_orders
 from .source_manager import SourceManager
 from .source_http import source_post, source_get
+from .analysis_http import analysis_post, analysis_get
 
 
 def server_identity(output_root):
@@ -74,6 +75,8 @@ def create_server(output_root, port=8765):
                 self.send_json(200,{'stopped':True})
                 threading.Thread(target=self.server.shutdown,daemon=True).start()
                 return
+            if analysis_post(self):
+                return
             if source_post(self,manager):
                 return
             if self.path not in ("/api/import/preview", "/api/import/confirm"):
@@ -129,9 +132,11 @@ def create_server(output_root, port=8765):
                     return
                 if source_get(self,manager,parsed):
                     return
+                if analysis_get(self,parsed):
+                    return
                 if parsed.path == "/":
                     self.send_content(200, page.read_bytes(), "text/html; charset=utf-8")
-                elif parsed.path in ("/tools.js", "/tools.css", "/connections.js", "/connections.css"):
+                elif parsed.path in ("/tools.js", "/tools.css", "/connections.js", "/connections.css", "/analysis.js", "/analysis.css"):
                     content_type = "text/javascript; charset=utf-8" if parsed.path.endswith('.js') else "text/css; charset=utf-8"
                     self.send_content(200, (page.parent / parsed.path[1:]).read_bytes(), content_type)
                 elif parsed.path in ("/api/data", "/report.html"):
@@ -196,6 +201,7 @@ def create_server(output_root, port=8765):
         raise
     server.source_manager=manager
     server.event_slots=threading.BoundedSemaphore(8)
+    server.analysis_slot=threading.BoundedSemaphore(1)
     manager.start()
     return server
 

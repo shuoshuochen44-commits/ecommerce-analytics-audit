@@ -78,3 +78,57 @@ def test_empty_order_table_requires_explicit_refresh_mode():
     assert list(csv.reader(io.StringIO(map_order_table(table, mapping, allow_empty=True).decode('utf-8-sig')))) == [list(COLUMNS)]
     with pytest.raises(ValueError):
         map_order_table(table, {}, allow_empty=True)
+
+
+def test_full_table_validation_collects_bounded_safe_diagnostics_in_original_order():
+    from zhishu_inspection.tabular_mapping import validate_order_table
+    table = order_table()
+    table.rows = [tuple(['secret-z', 'bad-date', 'GD', 'secret-buyer', '食品饮料', '-2', '0', '1.001', 'unknown'])] * 30
+    result = validate_order_table(table, dict(zip(COLUMNS, ALIASES)))
+    assert result['valid'] is False
+    assert result['error_count'] == 30 * 5 + 29
+    assert len(result['issues']) == 50 and result['truncated'] is True
+    assert result['issues'][0] == {'row_number': 2, 'source_column': 'order_date', 'target_field': '下单日期', 'reason': '日期格式错误', 'suggestion': '请填写 YYYY-MM-DD，例如 2026-01-01'}
+    assert 'secret-' not in str(result)
+    assert all(set(issue) == {'row_number','source_column','target_field','reason','suggestion'} for issue in result['issues'])
+    assert result['issues'][5]['row_number'] == 3
+
+
+def test_validation_matches_canonical_constraints_and_reports_dates():
+    from zhishu_inspection.tabular_mapping import validate_order_table, MappingValidationError
+    mapping = dict(zip(COLUMNS, ALIASES))
+    good = validate_order_table(order_table(), mapping)
+    assert good['valid'] and good['row_count'] == 1
+    assert good['date_min'] == good['date_max'] == '2026-01-01'
+    bad = order_table(buyer_id='bad\nvalue', amount='1000000000', order_date='2026-1-1')
+    result = validate_order_table(bad, mapping)
+    assert result['error_count'] == 3
+    with pytest.raises(MappingValidationError) as error:
+        map_order_table(bad, mapping)
+    assert error.value.diagnostics == result
+
+
+def test_validation_rejects_empty_without_explicit_allow_empty():
+    from zhishu_inspection.tabular_mapping import validate_order_table
+    table = order_table(); table.rows = []
+    assert not validate_order_table(table, dict(zip(COLUMNS, ALIASES)))['valid']
+    assert validate_order_table(table, dict(zip(COLUMNS, ALIASES)), allow_empty=True)['valid']
+
+
+def test_validation_counts_other_bad_cells_when_a_cell_has_unsupported_type():
+    from zhishu_inspection.tabular_mapping import validate_order_table
+    result=validate_order_table(order_table(buyer_id=b'private-id',amount='-2',order_date='bad'),dict(zip(COLUMNS,ALIASES)))
+    assert result['row_count']==1
+    assert result['error_count']==3
+    assert {issue['target_field'] for issue in result['issues']}=={'买家编号','商品金额','下单日期'}
+    assert 'private-id' not in str(result)
+
+
+def test_validation_enforces_canonical_row_limit_even_for_mutated_tables():
+    from zhishu_inspection.tabular_mapping import validate_order_table
+    table=order_table()
+    table.rows=[(str(i),'2026-01-01','广东省','U','食品','1','0','1','已完成') for i in range(20001)]
+    result=validate_order_table(table,dict(zip(COLUMNS,ALIASES)))
+    assert not result['valid']
+    assert result['error_count']==1
+    assert result['issues'][0]['reason']=='订单数量超过 20,000 笔'

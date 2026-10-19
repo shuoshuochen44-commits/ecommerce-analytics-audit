@@ -16,7 +16,7 @@ from .csv_import import COLUMNS, import_csv
 from .database_sources import inspect_database, read_database_table
 from .file_sources import read_file_tables
 from .source_types import MAX_BYTES, TableData
-from .tabular_mapping import map_order_table, preview_table
+from .tabular_mapping import MappingValidationError, map_order_table, preview_table, validate_order_table
 
 
 def now_iso():
@@ -51,6 +51,10 @@ class SourceManager:
                 record['state']='ready' if record.get('snapshot_run_id') else 'configured'
                 if record.get('password_required'):
                     record['state']='credentials_required'
+                if record.get('mapping') and 'mapping_columns' not in record:
+                    selected=next((t for t in record['tables'] if t['name']==record['table'] and t.get('schema')==record['schema']),None)
+                    if selected:
+                        record['mapping_columns']=list(selected['columns'])
                 record['next_interval']=record['next_watch']=0
                 self._records[record['id']]=record
 
@@ -84,7 +88,7 @@ class SourceManager:
 
     def _public(self,record):
         keys=('id','name','kind','tables','table','schema','mapping','refresh','state','watchable',
-              'last_check_at','last_success_at','last_attempt_ms','last_acquired_at','snapshot_run_id','error')
+              'last_check_at','last_success_at','last_attempt_ms','last_acquired_at','snapshot_run_id','error','diagnostics')
         result={key:copy.deepcopy(record.get(key)) for key in keys}
         result['credentials_required']=bool(record.get('password_required') and record['id'] not in self._secrets)
         result['available']=bool(record.get('snapshot_run_id'))
@@ -200,7 +204,41 @@ class SourceManager:
             if table is not None:
                 self._select_table(record,table,schema)
         data,_=self._read_table(record)
-        return preview_table(data)
+        preview=preview_table(data)
+        preview.update(self._remembered_mapping(record,data.columns))
+        return preview
+
+    def _remembered_mapping(self,record,columns):
+        def valid(mapping):
+            return (isinstance(mapping,dict) and set(mapping)==set(COLUMNS)
+                    and all(isinstance(value,str) and value in columns for value in mapping.values())
+                    and len(set(mapping.values()))==len(COLUMNS))
+        with self._lock:
+            current=self._record(record['id'])
+            if (record['table']==current['table'] and record['schema']==current['schema']
+                    and valid(current.get('mapping'))):
+                return {'remembered_mapping':copy.deepcopy(current['mapping']),'mapping_origin':'current'}
+            candidates={}
+            for previous in self._records.values():
+                mapping=previous.get('mapping')
+                if not valid(mapping):
+                    continue
+                if set(previous.get('mapping_columns',[]))==set(columns):
+                    candidates[tuple(mapping[field] for field in COLUMNS)]=mapping
+            if len(candidates)==1:
+                return {'remembered_mapping':copy.deepcopy(next(iter(candidates.values()))),'mapping_origin':'history'}
+            return {'remembered_mapping':{},'mapping_origin':'conflict' if candidates else 'aliases'}
+
+    def validate(self,source_id,*,table=None,schema=None,mapping=None):
+        """Validate a proposed mapping without changing source settings or snapshots."""
+        with self._lock:
+            record=copy.deepcopy(self._record(source_id))
+            if table is not None:
+                self._select_table(record,table,schema)
+            if mapping is not None:
+                record['mapping']=copy.deepcopy(mapping)
+        data,_=self._read_table(record)
+        return validate_order_table(data,record['mapping'],allow_empty=True)
 
     @staticmethod
     def _select_table(record,table,schema):
@@ -216,12 +254,16 @@ class SourceManager:
             if future and not future.done():
                 raise ValueError('正在同步，请完成后再修改配置')
             proposed=copy.deepcopy(record)
+            before=copy.deepcopy(record)
             if table is not None:
                 self._select_table(proposed,table,schema)
                 if proposed['table']!=record['table'] or proposed['schema']!=record['schema']:
                     proposed['mapping']={}
+                    proposed.pop('mapping_columns',None)
             if mapping is not None:
-                if not isinstance(mapping,dict) or set(mapping)!=set(COLUMNS) or len(set(mapping.values()))!=len(COLUMNS):
+                if (not isinstance(mapping,dict) or set(mapping)!=set(COLUMNS)
+                        or any(not isinstance(v,str) for v in mapping.values())
+                        or len(set(mapping.values()))!=len(COLUMNS)):
                     raise ValueError('请为九个业务字段各选择一个不同的来源列')
                 columns=next(t['columns'] for t in proposed['tables'] if t['name']==proposed['table'] and t.get('schema')==proposed['schema'])
                 if any(not isinstance(v,str) or v not in columns for v in mapping.values()):
@@ -240,6 +282,20 @@ class SourceManager:
                 if settings['watch_seconds'] is not None and not record['watchable']:
                     raise ValueError('上传的是静态副本；监测原文件请使用本机文件路径入口')
                 proposed['refresh']=settings
+        # File/database reads may be slow: keep source status and events available.
+        if mapping is not None:
+            data,_=self._read_table(proposed)
+            validation=validate_order_table(data,mapping,allow_empty=True)
+            if not validation['valid']:
+                raise MappingValidationError(validation)
+            proposed['mapping_columns']=list(data.columns)
+        with self._lock:
+            current=self._record(source_id)
+            if current is not record or current!=before:
+                raise ValueError('检查期间配置或采集状态发生变化，请重新检查后保存')
+            future=self._futures.get(source_id)
+            if future and not future.done():
+                raise ValueError('正在同步，请完成后再修改配置')
             proposed['next_interval']=proposed['next_watch']=0
             self._records[source_id]=proposed
             self._persist()
@@ -268,10 +324,12 @@ class SourceManager:
         table,file_hash=self._read_table(record)
         if not record['mapping']:
             raise ValueError('请先确认订单字段映射')
+        # Report source row numbers before canonical sorting for deterministic hashes.
+        content=map_order_table(table,record['mapping'],allow_empty=True)
         if table.rows:
             position=table.columns.index(record['mapping']['订单号'])
             table=TableData(table.name,table.columns,sorted(table.rows,key=lambda r:str(r[position])),table.origin)
-        content=map_order_table(table,record['mapping'],allow_empty=True)
+            content=map_order_table(table,record['mapping'],allow_empty=True)
         provenance={'source_id':record['id'],'kind':record['kind'],'source_kind':record['config'].get('kind','file'),
                     'table':record['table'],'schema':record['schema'],'mapping':record['mapping'],
                     'file_sha256':file_hash,'origin':table.origin,'currency':'CNY','grain':'one_complete_order_per_row'}
@@ -289,6 +347,7 @@ class SourceManager:
                     raise ValueError('请先确认字段映射再刷新')
                 record['state']='syncing'
                 record['error']=None
+                record['diagnostics']=None
                 self._emit(source_id,'started')
                 future=self._executor.submit(self._sync,source_id)
                 self._futures[source_id]=future
@@ -310,7 +369,7 @@ class SourceManager:
                 result=import_csv(content,self.output_for(source_id),allow_empty=True,provenance=provenance)
             with self._lock:
                 current=self._record(source_id)
-                current.update(state='ready',error=None,last_check_at=now_iso(),last_acquired_at=acquired,
+                current.update(state='ready',error=None,diagnostics=None,last_check_at=now_iso(),last_acquired_at=acquired,
                                last_attempt_ms=round((perf_counter()-started)*1000,3))
                 if result:
                     current.update(snapshot_run_id=result['run_id'],content_fingerprint=fingerprint,last_success_at=now_iso())
@@ -322,7 +381,8 @@ class SourceManager:
                 message='读取或核验未完成，请检查连接、来源表和字段映射；上次成功数据仍保留。'
                 if isinstance(error,ValueError) and record['kind']=='file':
                     message='文件读取或字段校验失败，请检查表头、金额、日期和订单粒度；上次成功数据仍保留。'
-                current.update(state='error',error=message,last_check_at=now_iso(),
+                diagnostics=error.diagnostics if isinstance(error,MappingValidationError) else None
+                current.update(state='error',error=message,diagnostics=diagnostics,last_check_at=now_iso(),
                                last_attempt_ms=round((perf_counter()-started)*1000,3))
                 self._persist()
                 self._emit(source_id,'failed')

@@ -15,9 +15,10 @@ main{padding-top:28px!important;padding-bottom:28px!important}.notice{display:fl
 </style>
 <link rel="stylesheet" href="/tools.css">
 <link rel="stylesheet" href="/connections.css">
+<link rel="stylesheet" href="/analysis.css">
 </head>
 <body data-page="overview">
-<header class="topbar"><div class="wrap"><div class="brand"><span class="brandmark" aria-hidden="true">智</span><div><strong>智数</strong><small>简单看懂每一笔生意</small></div></div><nav aria-label="主导航"><button data-tab="overview" class="active" aria-current="page">看经营</button><button data-tab="connections">数据接入</button><button data-tab="lookup">查订单</button><button data-tab="data">导入模板</button><button data-tab="quality">数据检查</button><button data-tab="help">使用说明</button></nav></div></header>
+<header class="topbar"><div class="wrap"><div class="brand"><span class="brandmark" aria-hidden="true">智</span><div><strong>智数</strong><small>简单看懂每一笔生意</small></div></div><nav aria-label="主导航"><button data-tab="overview" class="active" aria-current="page">看经营</button><button data-tab="analysis">问数据</button><button data-tab="connections">数据接入</button><button data-tab="lookup">查订单</button><button data-tab="data">导入模板</button><button data-tab="quality">数据检查</button><button data-tab="help">使用说明</button></nav></div></header>
 <main class="wrap">
 <div class="heading"><div><h1 id="page-title">经营概览</h1><p class="sub" id="subtitle"></p></div><div class="heading-actions"><div class="sourcebar"><label for="data-source" class="sr-only">数据集</label><select id="data-source"><option value="demo">工作区数据</option><option value="customer" id="customer-option" disabled>导入数据（未导入）</option></select></div><a id="download" class="button" aria-disabled="true" download="智数经营报告.html">↓ 保存报告</a></div></div>
 <div id="error" class="message hidden" role="alert"><span id="error-text"></span><button id="retry" class="text-btn">重新加载</button></div>
@@ -40,6 +41,20 @@ main{padding-top:28px!important;padding-bottom:28px!important}.notice{display:fl
   <div class="insight" id="insight"></div>
   <div class="grid bottom"><article class="card"><div class="card-head"><div><h2>哪些商品卖得好</h2><p class="caption">按商品分类的销售额排列 · 前五名</p></div></div><div id="categories"></div></article><article class="card"><div class="card-head"><div><h2>数据有没有问题</h2><p class="caption">检查所有数据，不随月份或地区变化</p></div><button class="text-btn" data-tab="quality">查看详情 →</button></div><div class="checks"><div class="check">已通过检查<b id="passed">—</b><span>检查项目</span></div><div class="check warn">需要看一看<b id="unmatched">—</b><span>待核对订单</span></div></div><p class="chart-foot" id="quality-note"></p></article></div>
  </div>
+</section>
+<section id="analysis" class="section" aria-label="问数据">
+ <article class="card"><div class="analysis-intro"><div><h2>这次想了解什么？</h2><p id="analysis-scope">请先导入文件或连接数据库</p></div><button class="text-btn" data-tab="overview">更改月份或地区 →</button></div>
+  <div id="analysis-quick" class="analysis-quick"></div>
+  <form id="analysis-form" class="analysis-form"><div><label for="analysis-question">选择经营问题</label><select id="analysis-question" disabled><option>正在读取问题目录…</option></select></div><button class="button primary" id="analysis-submit" disabled>分析这个问题</button><div class="analysis-free"><label for="analysis-text">或输入目录问题原文</label><input id="analysis-text" maxlength="500" placeholder="例如：完成订单商品金额是多少" autocomplete="off"></div></form>
+  <p id="analysis-message" class="caption spaced" role="status" aria-live="polite"></p><button id="analysis-catalog-retry" class="text-btn hidden">重新读取问题目录</button>
+ </article>
+ <div id="analysis-stale" class="analysis-stale hidden"><span id="analysis-stale-text"></span><button class="button" id="analysis-rerun">按当前范围重新分析</button></div>
+ <article id="analysis-result" class="card spaced hidden" aria-label="分析结果" aria-busy="false"><div class="card-head"><div><h2 id="analysis-result-title"></h2><p id="analysis-result-scope" class="caption"></p></div><span id="analysis-badge" class="analysis-badge"></span></div>
+  <div id="analysis-answer" class="analysis-answer"></div><div id="analysis-chart"></div><div id="analysis-values"></div>
+  <aside id="analysis-warnings" class="analysis-warnings hidden"></aside>
+  <details id="analysis-details"><summary>查看计算依据与来源</summary><p id="analysis-definition"></p><p class="caption spaced">实际执行的 SQL</p><pre id="analysis-sql"></pre><p class="caption">绑定参数</p><pre id="analysis-parameters"></pre><p class="caption">核验方式</p><p id="analysis-verification" class="technical"></p><dl class="analysis-provenance"><dt>分析运行编号</dt><dd id="analysis-run"></dd><dt>数据版本</dt><dd id="analysis-snapshot"></dd><dt>来源指纹</dt><dd id="analysis-fingerprint"></dd></dl><p class="caption">引用证据</p><pre id="analysis-evidence"></pre></details>
+  <div class="analysis-actions"><a class="button" id="analysis-download" download>↓ 保存分析记录</a><button class="button" id="analysis-replay">用原数据版本重放</button></div>
+ </article>
 </section>
 <section id="lookup" class="section" aria-label="订单查询">
  <article class="card"><div class="card-head"><div><h2>查找具体订单</h2><p class="caption" id="order-scope">按当前经营月份与地区查询，包含未交付及取消订单。</p></div><button class="text-btn" data-tab="overview">更改月份或地区 →</button></div>
@@ -201,6 +216,7 @@ $('download').addEventListener('click',e=>{if($('download').getAttribute('aria-d
 </script>
 <script src="/tools.js"></script>
 <script src="/connections.js"></script>
+<script src="/analysis.js"></script>
 <script>initializeWorkspace();</script>
 </body>
 </html>

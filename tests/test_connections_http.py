@@ -109,3 +109,22 @@ def test_source_api_blocks_cross_origin_and_malformed_parameters(connection_serv
         assert result['database_capabilities']
     with urllib.request.urlopen(base+'/connections.js') as response:
         assert 'EventSource' in response.read().decode('utf-8')
+
+
+def test_validate_mapping_route_and_structured_failure(connection_server):
+    base,server=connection_server
+    source=post(base,'/api/sources/upload',csv_bytes('-1'),**{'X-Zhishu-Filename':'invalid.csv'})['source']
+    result=post(base,'/api/sources/validate',{'source_id':source['id'],'mapping':{c:c for c in COLUMNS}})
+    assert not result['validation']['valid']
+    assert result['validation']['error_count']==2
+    assert result['validation']['issues'][0]['source_column']=='商品金额'
+    with pytest.raises(urllib.error.HTTPError) as error:
+        post(base,'/api/sources/configure',{'source_id':source['id'],'mapping':{c:c for c in COLUMNS}})
+    failure=json.load(error.value)
+    assert failure['diagnostics']==result['validation']
+    assert server.source_manager.get(source['id'])['mapping']=={}
+    with pytest.raises(urllib.error.HTTPError):
+        post(base,'/api/sources/validate',{'source_id':source['id'],'mapping':{c:c for c in COLUMNS},'unexpected':True})
+    with pytest.raises(urllib.error.HTTPError) as cross:
+        post(base,'/api/sources/validate',{'source_id':source['id'],'mapping':{c:c for c in COLUMNS}},Origin='https://bad.example')
+    assert cross.value.code==403

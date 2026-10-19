@@ -164,3 +164,96 @@ def test_database_password_never_enters_registry_or_public_status(tmp_path,monke
         assert source['credentials_required'] is False
     with module.SourceManager(output) as manager:
         assert manager.get(source['id'])['credentials_required'] is True
+
+
+def test_validate_proposed_mapping_does_not_persist_and_counts_errors(tmp_path):
+    from zhishu_inspection.source_manager import SourceManager
+    with SourceManager(tmp_path/'output') as manager:
+        path=tmp_path/'invalid.csv'; path.write_bytes(csv_bytes('-1.00'))
+        source=manager.register_file(path)
+        result=manager.validate(source['id'],mapping={c:c for c in COLUMNS})
+        assert not result['valid'] and result['error_count']==2
+        assert manager.get(source['id'])['mapping']=={}
+        assert result['issues'][0]['row_number']==2
+        with pytest.raises(ValueError):
+            manager.configure(source['id'],mapping={c:c for c in COLUMNS})
+        assert manager.get(source['id'])['mapping']=={}
+
+
+def test_preview_reuses_only_unique_confirmed_mapping_for_exact_columns(tmp_path):
+    from zhishu_inspection.source_manager import SourceManager
+    with SourceManager(tmp_path/'output') as manager:
+        sid,path=add_csv(manager,tmp_path)
+        other=manager.register_file(path)
+        preview=manager.preview(other['id'])
+        assert preview['remembered_mapping']=={c:c for c in COLUMNS}
+        assert preview['mapping_origin']=='history'
+        assert manager.preview(sid)['mapping_origin']=='current'
+        conflicting={c:c for c in COLUMNS}
+        conflicting['商品金额'],conflicting['支付金额']='支付金额','商品金额'
+        manager.configure(other['id'],mapping=conflicting)
+        third=manager.register_file(path)
+        assert manager.preview(third['id'])['remembered_mapping']=={}
+        assert manager.preview(third['id'])['mapping_origin']=='conflict'
+        extra=tmp_path/'extra.csv'
+        extra.write_bytes(path.read_bytes().decode('utf-8-sig').replace('订单状态','订单状态,extra').replace('已完成','已完成,x').encode('utf-8-sig'))
+        fourth=manager.register_file(extra)
+        assert manager.preview(fourth['id'])['remembered_mapping']=={}
+
+
+def test_refresh_diagnostics_use_original_order_and_keep_success(tmp_path):
+    from zhishu_inspection.source_manager import SourceManager
+    with SourceManager(tmp_path/'output') as manager:
+        sid,path=add_csv(manager,tmp_path)
+        first=manager.refresh(sid,wait=True)
+        path.write_bytes(csv_bytes().replace(b'001',b'ZZZ')+csv_bytes('-5').decode('utf-8-sig').splitlines()[1].encode()+b'\r\n')
+        failed=manager.refresh(sid,wait=True)
+        assert failed['state']=='error'
+        assert failed['snapshot_run_id']==first['snapshot_run_id']
+        assert failed['diagnostics']['issues'][0]['row_number']==3
+        assert 'ZZZ' not in str(failed['diagnostics'])
+        path.write_bytes(csv_bytes())
+        assert manager.refresh(sid,wait=True)['diagnostics'] is None
+
+
+def test_old_registry_mapping_is_reused_after_upgrade(tmp_path):
+    from zhishu_inspection.source_manager import SourceManager
+    output=tmp_path/'output'
+    with SourceManager(output) as manager:
+        sid,path=add_csv(manager,tmp_path)
+    registry=output/'connections'/'registry.json'
+    records=json.loads(registry.read_text(encoding='utf-8'))
+    for record in records['sources']:
+        record.pop('mapping_columns',None)
+    registry.write_text(json.dumps(records,ensure_ascii=False),encoding='utf-8')
+    with SourceManager(output) as manager:
+        new=manager.register_file(path)
+        result=manager.preview(new['id'])
+        assert result['mapping_origin']=='history'
+        assert result['remembered_mapping']=={c:c for c in COLUMNS}
+
+
+def test_mapping_validation_does_not_block_status_and_rejects_stale_commit(tmp_path,monkeypatch):
+    from zhishu_inspection.source_manager import SourceManager
+    with SourceManager(tmp_path/'output') as manager:
+        sid,_=add_csv(manager,tmp_path)
+        entered=threading.Event(); release=threading.Event(); status_done=threading.Event(); failures=[]
+        original=manager._read_table
+        def hold(record):
+            if threading.current_thread().name=='mapping-check':
+                entered.set(); assert release.wait(5)
+            return original(record)
+        monkeypatch.setattr(manager,'_read_table',hold)
+        def configure():
+            try: manager.configure(sid,mapping={c:c for c in COLUMNS})
+            except ValueError as error: failures.append(str(error))
+        worker=threading.Thread(target=configure,name='mapping-check');worker.start()
+        assert entered.wait(5)
+        reader=threading.Thread(target=lambda:(manager.get(sid),status_done.set()));reader.start()
+        try:
+            assert status_done.wait(1), 'status reads must remain available while source data is checked'
+            manager.configure(sid,refresh={'interval_seconds':60})
+        finally:
+            release.set();worker.join(6);reader.join(6)
+        assert failures and '变化' in failures[0]
+        assert manager.get(sid)['refresh']['interval_seconds']==60

@@ -25,6 +25,7 @@ $buildArgs = @(
     '--hidden-import', 'webview.platforms.edgechromium',
     '--hidden-import', 'webview.platforms.winforms',
     '--collect-all', 'webview', '--collect-all', 'pythonnet', '--collect-all', 'clr_loader',
+    '--collect-submodules', 'sqlglot.dialects',
     'scripts/desktop_entry.py'
 )
 & $python @buildArgs

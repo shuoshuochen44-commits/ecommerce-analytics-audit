@@ -27,12 +27,12 @@ class _ReadError(ValueError):
     pass
 
 
-def _table(name, columns, rows, path, kind):
+def _table(name, columns, rows, path, kind, *, row_numbers=None):
     if len(rows) > MAX_ROWS:
         raise _ReadError('数据行数超过 20,000；请缩小范围，未截断分析数据')
     try:
         return TableData(name, tuple(columns), rows,
-                         {'format': kind, 'file': path.name, 'table': name})
+                         {'format': kind, 'file': path.name, 'table': name},row_numbers=row_numbers)
     except ValueError as error:
         raise _ReadError(str(error)) from None
 
@@ -97,14 +97,19 @@ def _delimited(path, kind, content):
             raise _ReadError('TXT 分隔符无法确定，请使用逗号、制表符、分号或竖线分隔并提供表头') from None
     reader = csv.reader(io.StringIO(text, newline=''), delimiter=delimiter, strict=True)
     header = next(reader, [])
-    rows = []
-    for row in reader:
+    rows, row_numbers = [], []
+    while True:
+        source_line=reader.line_num+1
+        row=next(reader,None)
+        if row is None:
+            break
         if not row or all(cell == '' for cell in row):
             continue
         rows.append(tuple(row))
+        row_numbers.append(source_line)
         if len(rows) > MAX_ROWS:
             raise _ReadError('数据行数超过 20,000；请缩小范围，未截断分析数据')
-    return [_table(path.stem, header, rows, path, kind)]
+    return [_table(path.stem, header, rows, path, kind,row_numbers=row_numbers)]
 
 
 def _json_object(pairs):
@@ -121,15 +126,18 @@ def _json(path, kind, content):
         return json.loads(value, parse_float=Decimal, object_pairs_hook=_json_object,
                           parse_constant=lambda _: (_ for _ in ()).throw(_ReadError('JSON 包含非有限数字')))
     text = _decode(content)
+    row_numbers=None
     if kind == 'json':
         records = decode(text)
         if isinstance(records, dict) and set(records) == {'records'}:
             records = records['records']
     else:
         records = []
-        for line in text.splitlines():
+        row_numbers=[]
+        for number,line in enumerate(text.splitlines(),1):
             if line.strip():
                 records.append(decode(line))
+                row_numbers.append(number)
                 if len(records) > MAX_ROWS:
                     raise _ReadError('数据行数超过 20,000；请缩小范围，未截断分析数据')
     if not isinstance(records, list) or not records or not isinstance(records[0], dict):
@@ -142,7 +150,7 @@ def _json(path, kind, content):
         if any(isinstance(value, (dict, list)) for value in record.values()):
             raise _ReadError('JSON 包含嵌套对象或数组，请先展开为每行一笔记录的平面字段')
         rows.append(tuple(record[column] for column in columns))
-    return [_table(path.stem, columns, rows, path, kind)]
+    return [_table(path.stem, columns, rows, path, kind,row_numbers=row_numbers)]
 
 
 def _coordinates(row, column):
@@ -349,8 +357,11 @@ def _workbook(path, kind):
             columns = values[0]
             if any(not isinstance(column, str) for column in columns):
                 raise _ReadError('工作表首行必须是明确的文本表头，请移除标题行和合并单元格')
-            rows = [tuple(row) for row in values[1:] if any(value != '' for value in row)]
-            _append(tables, _table(name, columns, rows, path, kind))
+            # skip_empty_area=False retains the sheet's physical origin, so the
+            # first Python row is worksheet row 1, including internal blank rows.
+            numbered=[(number,tuple(row)) for number,row in enumerate(values[1:],2) if any(value!='' for value in row)]
+            rows=[row for _,row in numbered]
+            _append(tables, _table(name, columns, rows, path, kind,row_numbers=[number for number,_ in numbered]))
     return tables
 
 

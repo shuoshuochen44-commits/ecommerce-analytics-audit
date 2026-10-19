@@ -329,3 +329,42 @@ def test_rejects_synthetic_workbook_dimensions_before_parsing(tmp_path, member, 
         archive.writestr(member, content)
     with pytest.raises(ValueError, match='行数|列数'):
         read_file_tables(path)
+
+
+def test_csv_validation_uses_physical_lines_after_blanks_and_multiline_records(tmp_path):
+    from zhishu_inspection.csv_import import COLUMNS
+    from zhishu_inspection.tabular_mapping import validate_order_table
+    path=tmp_path/'gaps.csv'
+    path.write_text(','.join(COLUMNS)+'\n\n'+ '001,2026-01-01,广东省,U1,"line\ncategory",1,0,1,已完成\n\n002,bad,广东省,U2,食品,1,0,1,已完成\n\n',encoding='utf-8')
+    table,=read_file_tables(path)
+    assert table.row_numbers==[3,6]
+    result=validate_order_table(table,{c:c for c in COLUMNS})
+    assert [issue['row_number'] for issue in result['issues']]==[3,6]
+    assert len(table.rows)==2
+
+
+def test_xlsx_validation_uses_actual_sheet_rows_after_gaps(tmp_path):
+    from openpyxl import Workbook
+    from zhishu_inspection.csv_import import COLUMNS
+    from zhishu_inspection.tabular_mapping import validate_order_table
+    path=tmp_path/'gaps.xlsx'
+    workbook=Workbook();sheet=workbook.active
+    sheet.append(list(COLUMNS));sheet.append([])
+    sheet.append(['001','bad','广东省','U1','食品','1','0','1','已完成'])
+    sheet.append([]);sheet.append(['002','2026-01-02','广东省','U2','食品','1','0','1','已完成'])
+    sheet.cell(8,1).value='';workbook.save(path)
+    table,=read_file_tables(path)
+    assert table.row_numbers==[3,5]
+    assert len(table.rows)==2
+    assert validate_order_table(table,{c:c for c in COLUMNS})['issues'][0]['row_number']==3
+
+
+def test_jsonl_validation_retains_physical_lines_after_blank_lines(tmp_path):
+    from zhishu_inspection.csv_import import COLUMNS
+    from zhishu_inspection.tabular_mapping import validate_order_table
+    path=tmp_path/'gaps.jsonl'
+    record=dict(zip(COLUMNS,['001','bad','广东省','U1','食品','1','0','1','已完成']))
+    path.write_text('\n\n'+json.dumps(record,ensure_ascii=False)+'\n\n',encoding='utf-8')
+    table,=read_file_tables(path)
+    assert table.row_numbers==[3]
+    assert validate_order_table(table,{c:c for c in COLUMNS})['issues'][0]['row_number']==3

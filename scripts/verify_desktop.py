@@ -1,6 +1,8 @@
 """Exercise the built Windows app against external data in a fresh test workspace."""
 
 import argparse
+import csv
+import io
 import json
 import subprocess
 import time
@@ -49,6 +51,10 @@ def main():
             sid=source['id']
             preview=request('/api/sources/preview',{'source_id':sid})
             assert preview['preview']['row_count']==12000
+            if results:
+                assert preview['preview']['mapping_origin']=='history',preview['preview']['mapping_origin']
+            validation=request('/api/sources/validate',{'source_id':sid,'mapping':preview['suggested_mapping']})['validation']
+            assert validation['valid'] and validation['row_count']==12000
             request('/api/sources/configure',{'source_id':sid,'mapping':preview['suggested_mapping']})
             request('/api/sources/refresh',{'source_id':sid})
             deadline=time.monotonic()+90
@@ -62,7 +68,34 @@ def main():
             results.append({'format':file.suffix,'rows':preview['preview']['row_count'],'metrics':data['metrics']})
         assert len(results)==5
         assert all(item['metrics']==results[0]['metrics'] for item in results)
-        print(json.dumps({'empty_start':True,'formats':results,'drivers':listing['database_capabilities']},ensure_ascii=False,indent=2))
+        assert len(request('/api/analysis/questions')['questions'])==30
+        answer=request('/api/analysis/ask',{'source':sid,'snapshot_run_id':data['run_id'],'question':'A01'})['run']
+        assert answer['verification_status']=='verified',answer
+        assert answer['result']==[{'value':data['metrics']['completed_product_amount']}]
+        assert answer['sql'] and answer['verification']['matched']
+        trend=request('/api/analysis/ask',{'source':sid,'snapshot_run_id':data['run_id'],'question':'T01'})['run']
+        assert trend['verification_status']=='verified' and trend['chart_spec']['mark']=='line',trend
+        assert len(trend['result'])==9
+        repeated=request('/api/analysis/replay',{'source':sid,'run_id':answer['run_id']})['run']
+        assert repeated['replay_matches'] and repeated['snapshot_run_id']==answer['snapshot_run_id']
+        downloaded=request('/api/analysis/download?'+urllib.parse.urlencode({'source':sid,'run_id':answer['run_id']}))
+        assert downloaded==answer
+        refused=request('/api/analysis/ask',{'source':sid,'snapshot_run_id':data['run_id'],'question':'D05'})['run']
+        assert refused['verification_status']=='blocked' and not refused['result']
+        sample=next(args.samples.glob('*.csv'))
+        sample_rows=list(csv.reader(io.StringIO(sample.read_text(encoding='utf-8-sig'))))
+        sample_rows[1][5]='-1'
+        invalid=io.StringIO(newline='');writer=csv.writer(invalid)
+        writer.writerow(sample_rows[0]);writer.writerow([]);writer.writerow(sample_rows[1])
+        bad_source=request('/api/sources/upload',invalid.getvalue().encode('utf-8-sig'),{'X-Zhishu-Filename':'invalid-orders.csv'})['source']
+        bad_preview=request('/api/sources/preview',{'source_id':bad_source['id']})
+        diagnostics=request('/api/sources/validate',{'source_id':bad_source['id'],'mapping':bad_preview['suggested_mapping']})['validation']
+        assert not diagnostics['valid'] and diagnostics['issues'][0]['row_number']==3,diagnostics
+        assert request('/api/data?source='+sid)['run_id']==data['run_id']
+        print(json.dumps({'empty_start':True,'formats':results,'drivers':listing['database_capabilities'],
+                          'analysis':{'amount':answer['result'],'trend_months':len(trend['result']),
+                                      'sql':answer['sql'],'replay_matches':True,'record_download':True,'missing_product_refused':True},
+                          'import_validation':{'five_formats':True,'mapping_reused':True,'blank_row_error_position':3}},ensure_ascii=False,indent=2))
     finally:
         if started:
             request('/api/application/exit',{})

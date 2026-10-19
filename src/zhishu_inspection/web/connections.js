@@ -1,10 +1,39 @@
+function mappingSummary(fields,mapping){
+ const values=fields.map(field=>mapping[field]).filter(Boolean),duplicate=new Set(values).size!==values.length;
+ return {complete:values.length,total:fields.length,duplicate,ready:values.length===fields.length&&!duplicate};
+}
+function validationMarkup(result){
+ const safe=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+ if(result.valid)return '<p class="validation-success">检查通过 · '+safe(result.row_count)+' 行订单'+(result.date_min?' · 日期 '+safe(result.date_min)+' 至 '+safe(result.date_max):' · 当前表为空')+'</p><p class="caption">本次检查针对当前来源内容，保存导入时会再次核验。</p>';
+ return '<p class="failure">检查未通过 · 共 '+safe(result.error_count)+' 项错误'+(result.truncated?'，仅列出前 50 项，请修改后重新检查':'')+'</p><div class="validation-table"><table><thead><tr><th>源表行号</th><th>来源列 → 业务字段</th><th>错误原因</th><th>修改建议</th></tr></thead><tbody>'+(result.issues||[]).map(issue=>'<tr><td>'+safe(issue.row_number??'整表')+'</td><td>'+safe(issue.source_column||'—')+' → '+safe(issue.target_field||'整表')+'</td><td>'+safe(issue.reason)+'</td><td>'+safe(issue.suggestion)+'</td></tr>').join('')+'</tbody></table></div>';
+}
 // Sources refresh in the backend. SSE announces only source state and version IDs.
 titles.connections=['连接数据，持续掌握经营','导入表格或连接数据库，自主选择手动、定时和变更监测。'];
-const connectionState={sources:[],fields:[],selected:null,busy:false,preview:null};
+const connectionState={sources:[],fields:[],selected:null,busy:false,preview:null,validation:null,previewVersion:0};
 const sourceStateNames={configured:'等待字段确认',ready:'已就绪',syncing:'同步中',error:'同步失败',credentials_required:'需要重新填写密码'};
 const sourceKindNames={sqlite:'SQLite',duckdb:'DuckDB',mysql:'MySQL',mariadb:'MariaDB',postgresql:'PostgreSQL',mssql:'SQL Server',oracle:'Oracle'};
 const liveBox=document.createElement('aside');liveBox.id='source-live';liveBox.className='source-live hidden';document.querySelector('.heading').after(liveBox);
 const sourceGroup=document.createElement('optgroup');sourceGroup.label='已连接数据源';$('data-source').append(sourceGroup);
+const mappingNote=document.createElement('p');mappingNote.id='connection-mapping-note';mappingNote.className='caption';$('connection-mapping').before(mappingNote);
+const validationBox=document.createElement('section');validationBox.className='connection-validation';validationBox.innerHTML='<div class="connection-actions"><button id="connection-check-data" class="button" type="button">检查映射后数据</button><span id="connection-mapping-count" class="caption"></span></div><div id="connection-validation-result" role="status" aria-live="polite"><p class="caption">完成字段映射后，检查完整选中表的数据。</p></div>';$('connection-mapping').after(validationBox);
+const syncDiagnostics=document.createElement('div');syncDiagnostics.id='connection-sync-diagnostics';$('connection-editor-state').after(syncDiagnostics);
+function selectedMapping(){const mapping={};for(const select of $('connection-mapping').querySelectorAll('select'))mapping[select.dataset.role]=select.value;return mapping}
+function draftKey(){return JSON.stringify({source:connectionState.selected,preview:connectionState.previewVersion,table:$('connection-table').value,mapping:selectedMapping(),refresh:refreshSettings(),grain:$('connection-confirm-grain').checked})}
+function invalidateValidation(){connectionState.validation=null;$('connection-validation-result').innerHTML='<p class="caption">配置已变化，请重新检查完整选中表。</p>';updateMappingCount()}
+function updateMappingCount(){
+ const summary=mappingSummary(connectionState.fields,selectedMapping());$('connection-mapping-count').textContent='已映射 '+summary.complete+' / '+summary.total+(summary.duplicate?' · 同一来源列被重复选择，请分别选择':'');$('connection-mapping-count').classList.toggle('failure',summary.duplicate);$('connection-check-data').disabled=!connectionState.preview||!summary.ready||connectionState.busy;
+}
+async function checkMappedData(){
+ if(!connectionState.preview)throw Error('请先完成来源表预览');
+ const summary=mappingSummary(connectionState.fields,selectedMapping());if(!summary.ready)throw Error(summary.duplicate?'同一来源列被重复选择，请分别选择':'请完成全部九个字段映射');
+ const key=draftKey();$('connection-validation-result').innerHTML='<p class="caption">正在检查完整选中表…</p>';
+ const {validation}=await sourceRequest('/api/sources/validate',{source_id:connectionState.selected,...JSON.parse($('connection-table').value),mapping:selectedMapping()});
+ if(key!==draftKey())throw Error('检查期间配置发生变化，请按当前配置重新检查');
+ connectionState.validation=validation;$('connection-validation-result').innerHTML=validationMarkup(validation);return validation;
+}
+$('connection-check-data').addEventListener('click',async()=>{if(connectionState.busy)return;connectionState.busy=true;updateMappingCount();try{await checkMappedData()}catch(error){sourceMessage(error.message,true)}finally{connectionState.busy=false;updateMappingCount()}});
+$('connection-mapping').addEventListener('change',invalidateValidation);
+for(const id of ['connection-confirm-grain','connection-interval-enabled','connection-interval','connection-watch-enabled','connection-watch'])$(id).addEventListener('change',invalidateValidation);
 function sourceMessage(text,failure=false){$('connection-message').textContent=text;$('connection-message').classList.toggle('failure',failure)}
 function dateLabel(value){return value?new Date(value).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}):'尚未成功同步'}
 function currentSource(){return connectionState.sources.find(s=>s.id===connectionState.selected)}
@@ -13,7 +42,7 @@ async function sourceRequest(path,data,extra={}){
  try{
   const binary=data instanceof File||data instanceof Blob;
   const response=await fetch(path,{method:'POST',headers:{'Content-Type':binary?'application/octet-stream':'application/json','X-Zhishu-Local':'1',...extra},body:binary?data:JSON.stringify(data),signal:controller.signal});
-  const result=await response.json();if(!response.ok)throw Error(result.error||'接入未完成');return result;
+  const result=await response.json();if(!response.ok){const error=Error(result.error||'接入未完成');error.diagnostics=result.diagnostics;throw error}return result;
  }catch(error){if(error.name==='AbortError')throw Error('来源读取超时，请检查连接或缩小数据范围');throw error}
  finally{clearTimeout(timeout)}
 }
@@ -29,6 +58,7 @@ function renderSourceStatus(){
  const selected=currentSource();
  if(selected){
   $('connection-editor-state').textContent=(sourceStateNames[selected.state]||selected.state)+' · 最近检查 '+dateLabel(selected.last_check_at)+' · 成功更新 '+dateLabel(selected.last_success_at)+(selected.error?' · '+selected.error:'');
+  $('connection-sync-diagnostics').innerHTML=selected.diagnostics?'<details><summary>查看最近采集的行列错误</summary>'+validationMarkup(selected.diagnostics)+'</details>':'';
   $('connection-view').disabled=!selected.available;
   $('connection-manual').disabled=selected.state==='syncing'||!Object.keys(selected.mapping||{}).length||selected.credentials_required;
  }
@@ -77,10 +107,10 @@ $('connection-form').addEventListener('submit',async event=>{
    result=await sourceRequest('/api/sources/register',{kind:'database',config});$('connection-password').value='';
   }
   await refreshSourceList();await openSource(result.source.id);sourceMessage('来源已读取，请核对预览并确认九个字段的对应关系。');
- }catch(error){sourceMessage(error.message,true)}finally{connectionState.busy=false;$('connection-submit').disabled=false}
+ }catch(error){sourceMessage(error.message,true)}finally{connectionState.busy=false;$('connection-submit').disabled=false;updateMappingCount()}
 });
 async function openSource(id){
- connectionState.selected=id;const source=currentSource();if(!source)return;
+ connectionState.selected=id;connectionState.preview=null;invalidateValidation();const source=currentSource();if(!source)return;
  $('connection-editor').classList.remove('hidden');$('connection-editor-title').textContent=source.name+' · 预览与字段映射';
  $('connection-table').innerHTML=source.tables.map(t=>'<option value="'+esc(JSON.stringify({table:t.name,schema:t.schema??null}))+'">'+esc((t.schema?t.schema+'.':'')+t.name)+'</option>').join('');
  $('connection-table').value=JSON.stringify({table:source.table,schema:source.schema??null});
@@ -92,34 +122,39 @@ async function openSource(id){
  await previewSource();await refreshSourceList();
 }
 async function previewSource(){
- const source=currentSource();if(!source)return;
+ const source=currentSource();if(!source)return;const version=++connectionState.previewVersion;connectionState.preview=null;invalidateValidation();
  try{
   if(source.credentials_required){
    if(!$('connection-reconnect-password').value)throw Error('重启后需要重新填写连接密码，再点击“重新预览”。');
    await sourceRequest('/api/sources/credentials',{source_id:source.id,password:$('connection-reconnect-password').value});$('connection-reconnect-password').value='';$('connection-reconnect').classList.add('hidden');await refreshSourceList();
   }
   const choice=JSON.parse($('connection-table').value);
-  const data=await sourceRequest('/api/sources/preview',{source_id:source.id,...choice});connectionState.preview=data.preview;
+  const choiceKey=$('connection-table').value;
+  const data=await sourceRequest('/api/sources/preview',{source_id:source.id,...choice});if(version!==connectionState.previewVersion||source.id!==connectionState.selected||choiceKey!==$('connection-table').value)return;connectionState.preview=data.preview;
   const preview=data.preview;$('connection-preview-note').textContent='共 '+num(preview.row_count)+' 行 · '+num(preview.columns.length)+' 列 · 下方只展示前五行；分析使用通过限额检查的完整选中表。';
   $('connection-preview-head').innerHTML='<tr>'+preview.columns.map(c=>'<th>'+esc(c)+'</th>').join('')+'</tr>';
   $('connection-preview-body').innerHTML=preview.samples.map(row=>'<tr>'+preview.columns.map(c=>'<td>'+esc(row[c])+'</td>').join('')+'</tr>').join('');
-  const same=choice.table===source.table&&(choice.schema??null)===(source.schema??null);
-  const mapping=same&&Object.keys(source.mapping||{}).length?source.mapping:data.suggested_mapping;
+  const mapping=Object.keys(data.remembered_mapping||{}).length?data.remembered_mapping:data.suggested_mapping;
+  const origins={current:'已填入当前来源保存的字段映射，请核对。',history:'已建议使用相同列名的历史确认映射，请核对后确认。',conflict:'相同列名存在多个历史映射方案，请逐项确认；当前仅按明确列名建议。',aliases:'仅按明确列名提供建议，请逐项确认。'};mappingNote.textContent=origins[data.mapping_origin]||origins.aliases;
   $('connection-mapping').innerHTML=connectionState.fields.map((field,index)=>'<div><label for="connection-map-'+index+'">业务字段：'+esc(field)+'</label><select id="connection-map-'+index+'" data-role="'+esc(field)+'"><option value="">请选择来源列</option>'+preview.columns.map(c=>'<option value="'+esc(c)+'"'+(mapping[field]===c?' selected':'')+'>'+esc(c)+'</option>').join('')+'</select></div>').join('');
+  updateMappingCount();
   renderSourceStatus();
- }catch(error){connectionState.preview=null;$('connection-mapping').innerHTML='';$('connection-preview-body').innerHTML='';sourceMessage(error.message,true)}
+ }catch(error){if(version!==connectionState.previewVersion||source.id!==connectionState.selected)return;connectionState.preview=null;$('connection-mapping').innerHTML='';$('connection-preview-body').innerHTML='';updateMappingCount();sourceMessage(error.message,true)}
 }
 $('connection-preview').addEventListener('click',previewSource);
 $('connection-table').addEventListener('change',()=>{$('connection-confirm-grain').checked=false;previewSource()});
 function refreshSettings(){return {interval_seconds:$('connection-interval-enabled').checked?Number($('connection-interval').value):null,watch_seconds:$('connection-watch-enabled').checked?Number($('connection-watch').value):null}}
 $('connection-save').addEventListener('click',async()=>{
  const source=currentSource();if(!source||connectionState.busy)return;connectionState.busy=true;$('connection-save').disabled=true;
+ const draft=draftKey(),stillCurrent=()=>draft===draftKey();
  try{
   if(!connectionState.preview)throw Error('请先完成来源表预览');if(!$('connection-confirm-grain').checked)throw Error('请先确认订单粒度与人民币金额口径');
-  const mapping={};for(const select of $('connection-mapping').querySelectorAll('select')){if(!select.value)throw Error('请完成全部九个字段映射');mapping[select.dataset.role]=select.value}
+  const validation=await checkMappedData();if(!validation.valid)throw Error('数据检查未通过，请按行列提示修改后再导入');
+  const mapping=selectedMapping();
   await sourceRequest('/api/sources/configure',{source_id:source.id,...JSON.parse($('connection-table').value),mapping,refresh:refreshSettings()});
-  await refreshSource(source.id);sourceMessage('已保存映射，正在读取并核验。完成后可在看板中查看。');
- }catch(error){sourceMessage(error.message,true)}finally{connectionState.busy=false;$('connection-save').disabled=false}
+  await sourceRequest('/api/sources/refresh',{source_id:source.id});await refreshSourceList();
+  if(stillCurrent())sourceMessage('已保存映射，正在读取并核验。完成后可在看板中查看。');
+ }catch(error){if(stillCurrent()){if(error.diagnostics)$('connection-validation-result').innerHTML=validationMarkup(error.diagnostics);sourceMessage(error.message,true)}}finally{connectionState.busy=false;$('connection-save').disabled=false;updateMappingCount()}
 });
 async function refreshSource(id){
  try{await sourceRequest('/api/sources/refresh',{source_id:id});await refreshSourceList();sourceMessage('刷新已提交；数据未变化时保留原版本，失败时保留上次成功结果。')}
