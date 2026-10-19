@@ -3,6 +3,11 @@ duckdb==1.5.6
 sqlglot==28.10.1
 SQLAlchemy==2.0.46
 python-calamine==0.6.2
+pywebview==6.2.1
+pythonnet==3.2.1
+clr_loader==0.3.1
+bottle==0.13.4
+proxy_tools==0.1.0
 olefile==0.47
 PyMySQL==1.1.2
 psycopg[binary]==3.2.13

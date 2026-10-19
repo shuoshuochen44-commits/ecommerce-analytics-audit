@@ -22,6 +22,9 @@ $buildArgs = @(
     '--hidden-import', 'pymysql', '--hidden-import', 'psycopg',
     '--hidden-import', 'psycopg_binary._psycopg', '--hidden-import', 'psycopg_binary.pq',
     '--hidden-import', 'python_calamine', '--hidden-import', 'olefile',
+    '--hidden-import', 'webview.platforms.edgechromium',
+    '--hidden-import', 'webview.platforms.winforms',
+    '--collect-all', 'webview', '--collect-all', 'pythonnet', '--collect-all', 'clr_loader',
     'scripts/desktop_entry.py'
 )
 & $python @buildArgs

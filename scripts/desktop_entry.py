@@ -3,7 +3,7 @@
 import os
 import sys
 
-from zhishu_inspection.launcher import main
+from zhishu_inspection.desktop import main
 
 
 if __name__ == '__main__':
