@@ -4,6 +4,8 @@
 
 **当前版本：v0.1.0** · Python 3.11 · DuckDB · 原生桌面窗口 · 离线固定问题问答
 
+**个人开发者：** [shuoshuochen44-commits](https://github.com/shuoshuochen44-commits)。本项目由其个人开发与维护。
+
 ## 可以做什么
 
 - **经营看板**：商品销售额、完成订单数、客单价、去重买家数，以及月份、地区、品类分析与完整月份环比。
@@ -32,7 +34,7 @@
 
 ## 下载 Windows 桌面版
 
-打开本仓库的 [Releases](https://github.com/shuoshuochen44-commits/ecommerce-data-audit/releases)，下载 Windows 压缩包并完整解压，然后双击 `智数巡检.exe`。关闭窗口即停止该应用的后台服务，重复启动会恢复已有窗口。
+打开本仓库的 [Releases](https://github.com/shuoshuochen44-commits/ecommerce-analytics-audit/releases)，下载 Windows 压缩包并完整解压，然后双击 `智数巡检.exe`。关闭窗口即停止该应用的后台服务，重复启动会恢复已有窗口。
 
 运行环境为 Windows 和 Edge WebView2 Runtime。源码和命令行分析也可独立使用；其他操作系统的桌面界面未验收。
 
@@ -48,8 +50,8 @@
 以下命令在克隆后的仓库根目录执行，使用 Python 3.11。Windows PowerShell 示例：
 
 ```powershell
-git clone https://github.com/shuoshuochen44-commits/ecommerce-data-audit.git
-cd ecommerce-data-audit
+git clone https://github.com/shuoshuochen44-commits/ecommerce-analytics-audit.git
+cd ecommerce-analytics-audit
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-lock.txt
 .\.venv\Scripts\python.exe -m pip install --no-deps --no-build-isolation -e .
@@ -153,7 +155,7 @@ docs/                      模型、口径、实现边界和验收记录
 
 原始 Olist 历史数据不随源码分发；来源与复现步骤见 [数据说明](data/README.md)。它的币种是 BRL，与人民币订单导入保持区分。
 
-## 许可与贡献
+## 作者、许可与反馈
 
 项目代码使用 [MIT 许可证](LICENSE)。第三方 XLSB 测试文件保留其 [上游 MIT 许可](tests/fixtures/file_formats/LICENSE-calamine-MIT.md)。原始外部数据的获取和使用遵循其发布方条件，另见 [第三方说明](THIRD_PARTY_NOTICES.md)。
 

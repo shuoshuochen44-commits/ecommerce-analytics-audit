@@ -1,6 +1,6 @@
 # 首次 GitHub 发布准备
 
-目标账号：shuoshuochen44-commits。目标仓库：ecommerce-data-audit，公开可见，项目代码采用 MIT 许可。
+目标账号：shuoshuochen44-commits。目标仓库：ecommerce-analytics-audit，公开可见，项目代码采用 MIT 许可。
 
 本轮只整理发布文档、许可、忽略规则和自动测试，不改变桌面功能与用户已有工作区。
 
@@ -20,9 +20,9 @@
 
 ## 公开发布核验（2026-10-22）
 
-- [公开仓库](https://github.com/shuoshuochen44-commits/ecommerce-data-audit)已创建，默认分支为 main，GitHub 识别许可为 MIT。
-- [首次 Windows 云端测试](https://github.com/shuoshuochen44-commits/ecommerce-data-audit/actions/runs/39712338276)成功：362 项 Python 测试、15 项界面逻辑测试和 30 条固定问题验收均通过。
-- [v0.1.0 正式版](https://github.com/shuoshuochen44-commits/ecommerce-data-audit/releases/tag/v0.1.0)已发布，版本标签对应本次测试的源码提交 `84c2d8bb1468334dc645ae5262a12a0335c6031a`。
+- [公开仓库](https://github.com/shuoshuochen44-commits/ecommerce-analytics-audit)已创建，默认分支为 main，GitHub 识别许可为 MIT。
+- [首次 Windows 云端测试](https://github.com/shuoshuochen44-commits/ecommerce-analytics-audit/actions/runs/39712338276)成功：362 项 Python 测试、15 项界面逻辑测试和 30 条固定问题验收均通过。
+- [v0.1.0 正式版](https://github.com/shuoshuochen44-commits/ecommerce-analytics-audit/releases/tag/v0.1.0)已发布，版本标签对应本次测试的源码提交 `84c2d8bb1468334dc645ae5262a12a0335c6031a`。
 - Windows 包大小为 46,285,019 字节，GitHub 上传文件的 SHA-256 与本地一致：`c812b8a065a9c4f30053df69925a07e87ad5fcfd47cbc42e990bdb70d29ab115`。
 - 仓库与版本页面均已在无需登录的请求中返回 HTTP 200。
 

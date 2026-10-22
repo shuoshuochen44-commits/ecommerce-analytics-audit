@@ -1,4 +1,8 @@
-# 贡献说明
+# 个人开发与贡献说明
+
+本项目由 [shuoshuochen44-commits](https://github.com/shuoshuochen44-commits) 个人开发与维护。
+
+欢迎通过 Issues 提交问题和建议；如需提交改进，请遵循以下约定。
 
 请先阅读 README 中的能力范围与数据口径。
 
