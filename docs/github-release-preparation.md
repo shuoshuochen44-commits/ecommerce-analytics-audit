@@ -18,4 +18,12 @@
 
 历史 Git 对象约 1.1 MB，检查中未发现已配置的常见私钥或令牌格式匹配。该扫描只是发布检查的一部分，不构成对所有形式敏感内容的保证。
 
-实际仓库创建、推送、GitHub Actions 和 Releases 状态需在完成账号官方授权后核实；本文件不是已经上传成功的声明。
+## 公开发布核验（2026-10-22）
+
+- [公开仓库](https://github.com/shuoshuochen44-commits/ecommerce-data-audit)已创建，默认分支为 main，GitHub 识别许可为 MIT。
+- [首次 Windows 云端测试](https://github.com/shuoshuochen44-commits/ecommerce-data-audit/actions/runs/39712338276)成功：362 项 Python 测试、15 项界面逻辑测试和 30 条固定问题验收均通过。
+- [v0.1.0 正式版](https://github.com/shuoshuochen44-commits/ecommerce-data-audit/releases/tag/v0.1.0)已发布，版本标签对应本次测试的源码提交 `84c2d8bb1468334dc645ae5262a12a0335c6031a`。
+- Windows 包大小为 46,285,019 字节，GitHub 上传文件的 SHA-256 与本地一致：`c812b8a065a9c4f30053df69925a07e87ad5fcfd47cbc42e990bdb70d29ab115`。
+- 仓库与版本页面均已在无需登录的请求中返回 HTTP 200。
+
+原有本地 origin 保留，GitHub 使用单独的 github 远程。用户业务 workspace 未加入公开源码或发布包。
