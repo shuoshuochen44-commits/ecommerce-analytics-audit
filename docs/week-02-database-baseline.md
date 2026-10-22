@@ -65,7 +65,7 @@
 ## 复现命令
 
 ```powershell
-cd "C:\Users\32253\Documents\Codex\2026-10-17\ban"
+cd "历史源码目录"
 .\.venv\Scripts\zhishu-week2.exe data/raw/olist data/zhishu.duckdb artifacts/week-02/real
 ```
 

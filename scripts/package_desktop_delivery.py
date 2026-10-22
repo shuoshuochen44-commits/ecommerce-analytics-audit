@@ -1,4 +1,8 @@
-"""Prepare a user-readable Windows delivery folder inside work/ (no desktop writes)."""
+"""Historical browser-demo packager requiring local prebuilt data and outputs.
+
+Current desktop releases use build_desktop.ps1 and external import files instead.
+This script is retained only to reproduce the earlier browser demonstration.
+"""
 
 import hashlib
 import json
