@@ -2,6 +2,7 @@
 
 import json
 import re
+from decimal import Decimal
 from urllib.parse import urlencode, urlsplit
 
 from .analysis import analyze, get_run, replay
@@ -21,7 +22,7 @@ def _source_root(handler, source):
     return root
 
 
-def _read_body(handler):
+def _read_body(handler, *, decimal_numbers=False):
     size = int(handler.headers.get('Content-Length', '0'))
     if not 0 < size <= MAX_REQUEST_BYTES:
         handler.close_connection = True
@@ -31,7 +32,8 @@ def _read_body(handler):
     content = handler.rfile.read(size)
     if len(content) != size:
         raise ValueError('分析请求未完整传输，请重试')
-    data = json.loads(content.decode('utf-8'))
+    options = {'parse_float': Decimal, 'parse_constant': lambda _: (_ for _ in ()).throw(ValueError('无效数值'))} if decimal_numbers else {}
+    data = json.loads(content.decode('utf-8'), **options)
     if not isinstance(data, dict):
         raise ValueError('分析请求必须为 JSON 对象')
     return data

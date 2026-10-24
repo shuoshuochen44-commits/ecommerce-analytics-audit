@@ -61,14 +61,19 @@ def resolve_question(text):
     return next((q for q in QUESTIONS if normalized in (q.id, q.text)), None)
 
 
-def validate_filters(snapshot, start=None, end=None, state=None):
+def validate_filter_values(start=None, end=None, state=None):
+    """Check values without opening a snapshot or changing a workspace."""
     for value in (start,end):
         if value is not None and (not isinstance(value,str) or not value):
             raise ValueError('日期必须为 YYYY-MM-DD，不能使用空值代替筛选')
     validate_dates(start, end)
+    if state is not None and (not isinstance(state, str) or len(state) > 50):
+        raise ValueError('无效地区')
+
+
+def validate_filters(snapshot, start=None, end=None, state=None):
+    validate_filter_values(start=start, end=end, state=state)
     if state is not None:
-        if not isinstance(state, str) or len(state) > 50:
-            raise ValueError('无效地区')
         if state != '__unknown__':
             with duckdb.connect(str(snapshot['directory']/'data.duckdb'), read_only=True) as con:
                 if con.execute('SELECT count(*) FROM dwd_orders WHERE customer_state=?', [state]).fetchone()[0] == 0:

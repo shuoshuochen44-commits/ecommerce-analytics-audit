@@ -1,0 +1,12 @@
+.anomaly-form{display:flex;gap:14px;align-items:end;margin-top:18px;flex-wrap:wrap}
+.anomaly-form label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+.anomaly-form select{min-width:210px}.anomaly-status{display:block;width:max-content;font-size:12px;padding:3px 9px;margin-top:7px;border-radius:5px}
+.anomaly-status.warning{background:#fff0d9;color:#87551c}.anomaly-status.neutral{background:#edf2ed;color:#526a5c}
+.anomaly-table{margin-top:18px;max-height:660px}.anomaly-table td{vertical-align:top;min-width:100px}
+.anomaly-table td:last-child{min-width:300px;max-width:600px;line-height:1.8}.anomaly-table th{text-align:left}
+.anomaly-table details{margin-top:9px}.anomaly-table pre,#anomaly-evidence{white-space:pre-wrap;overflow-wrap:anywhere;background:#f4f7f2;padding:12px;font-size:12px;max-height:360px;overflow:auto}
+.anomaly-exact{font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.anomaly-exact small{display:block;color:var(--muted);margin-top:6px}
+#anomaly-stale{padding:14px 18px;background:#fff6e1;border:1px solid #e7d3a5;border-radius:9px;color:#825d25;margin-top:18px}
+.anomaly-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}#anomaly-message{min-height:22px}
+@media(max-width:1050px){.topbar nav button{padding:10px 7px;font-size:12px}}
+@media(max-width:760px){.anomaly-form{align-items:stretch;flex-direction:column}.anomaly-form select{width:100%}}

@@ -1,0 +1,12 @@
+include LICENSE README.md THIRD_PARTY_NOTICES.md requirements-lock.txt requirements-build.txt
+include start-desktop.cmd start-dashboard.cmd
+include docs/data-model.md
+recursive-include sql *.sql
+recursive-include src/zhishu_inspection/web *.html *.js *.css
+recursive-include assets/branding *.png *.ico
+include scripts/desktop_entry.py scripts/build_desktop.ps1 scripts/export_import_samples.py
+recursive-include examples *.csv
+global-exclude *.pyc *.pyo
+prune work
+prune workspace
+prune artifacts

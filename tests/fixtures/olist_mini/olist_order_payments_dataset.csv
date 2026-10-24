@@ -1,5 +1,0 @@
-order_id,payment_sequential,payment_type,payment_installments,payment_value
-o1,1,credit_card,1,100.00
-o1,2,voucher,1,65.00
-o2,1,credit_card,2,220.00
-o3,1,credit_card,1,88.00

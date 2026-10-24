@@ -1,15 +1,35 @@
+﻿param(
+    [string]$PythonPath,
+    [string]$BuildRoot
+)
+
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $projectRoot
-$python = Join-Path $projectRoot '.venv\Scripts\python.exe'
-$env:PYINSTALLER_CONFIG_DIR = Join-Path $projectRoot 'work\pyinstaller-cache'
+$python = if ($PythonPath) { [IO.Path]::GetFullPath($PythonPath) } else { Join-Path $projectRoot '.venv\Scripts\python.exe' }
+if (-not (Test-Path -LiteralPath $python -PathType Leaf)) { throw 'Python interpreter does not exist' }
+if ($BuildRoot) {
+    $isolatedRoot = [IO.Path]::GetFullPath($BuildRoot)
+    if (Test-Path -LiteralPath $isolatedRoot) { throw 'BuildRoot already exists; select a new directory' }
+    New-Item -ItemType Directory -Path $isolatedRoot -ErrorAction Stop | Out-Null
+    $distPath = Join-Path $isolatedRoot 'dist'
+    $workPath = Join-Path $isolatedRoot 'build'
+    $specPath = Join-Path $isolatedRoot 'spec'
+    $env:PYINSTALLER_CONFIG_DIR = Join-Path $isolatedRoot 'cache'
+} else {
+    $distPath = 'work/desktop-dist'
+    $workPath = 'work/desktop-build'
+    $specPath = 'work'
+    $env:PYINSTALLER_CONFIG_DIR = Join-Path $projectRoot 'work\pyinstaller-cache'
+}
 $webAssets = (Join-Path $projectRoot 'src/zhishu_inspection/web') + ';zhishu_inspection/web'
 $sqlAssets = (Join-Path $projectRoot 'sql') + ';sql'
 $buildArgs = @(
     '-m', 'PyInstaller', '--noconfirm', '--clean', '--onefile', '--windowed',
     '--name', '智数巡检', '--paths', 'src',
-    '--distpath', 'work/desktop-dist', '--workpath', 'work/desktop-build',
-    '--specpath', 'work',
+    '--icon', (Join-Path $projectRoot 'assets/branding/zhishu-app-v1.ico'),
+    '--distpath', $distPath, '--workpath', $workPath,
+    '--specpath', $specPath,
     '--add-data', $webAssets,
     '--add-data', $sqlAssets,
     '--hidden-import', 'sqlalchemy.dialects.mysql.pymysql',

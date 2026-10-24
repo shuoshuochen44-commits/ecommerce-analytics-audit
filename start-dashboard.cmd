@@ -3,7 +3,7 @@ chcp 65001 >nul
 setlocal
 cd /d "%~dp0"
 if not exist ".venv\Scripts\python.exe" (
-  echo 还没有准备好运行环境，请把此提示发给我协助安装。
+  echo Please install the Python environment as described in README.md.
   pause
   exit /b 1
 )

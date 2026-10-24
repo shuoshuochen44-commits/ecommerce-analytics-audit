@@ -16,9 +16,10 @@ main{padding-top:28px!important;padding-bottom:28px!important}.notice{display:fl
 <link rel="stylesheet" href="/tools.css">
 <link rel="stylesheet" href="/connections.css">
 <link rel="stylesheet" href="/analysis.css">
+<link rel="stylesheet" href="/anomalies.css">
 </head>
 <body data-page="overview">
-<header class="topbar"><div class="wrap"><div class="brand"><span class="brandmark" aria-hidden="true">智</span><div><strong>智数</strong><small>简单看懂每一笔生意</small></div></div><nav aria-label="主导航"><button data-tab="overview" class="active" aria-current="page">看经营</button><button data-tab="analysis">问数据</button><button data-tab="connections">数据接入</button><button data-tab="lookup">查订单</button><button data-tab="data">导入模板</button><button data-tab="quality">数据检查</button><button data-tab="help">使用说明</button></nav></div></header>
+<header class="topbar"><div class="wrap"><div class="brand"><span class="brandmark" aria-hidden="true">智</span><div><strong>智数</strong><small>简单看懂每一笔生意</small></div></div><nav aria-label="主导航"><button data-tab="overview" class="active" aria-current="page">看经营</button><button data-tab="analysis">问数据</button><button data-tab="anomalies">查异常</button><button data-tab="connections">数据接入</button><button data-tab="lookup">查订单</button><button data-tab="data">导入模板</button><button data-tab="quality">数据检查</button><button data-tab="help">使用说明</button></nav></div></header>
 <main class="wrap">
 <div class="heading"><div><h1 id="page-title">经营概览</h1><p class="sub" id="subtitle"></p></div><div class="heading-actions"><div class="sourcebar"><label for="data-source" class="sr-only">数据集</label><select id="data-source"><option value="demo">工作区数据</option><option value="customer" id="customer-option" disabled>导入数据（未导入）</option></select></div><a id="download" class="button" aria-disabled="true" download="智数经营报告.html">↓ 保存报告</a></div></div>
 <div id="error" class="message hidden" role="alert"><span id="error-text"></span><button id="retry" class="text-btn">重新加载</button></div>
@@ -54,6 +55,18 @@ main{padding-top:28px!important;padding-bottom:28px!important}.notice{display:fl
   <aside id="analysis-warnings" class="analysis-warnings hidden"></aside>
   <details id="analysis-details"><summary>查看计算依据与来源</summary><p id="analysis-definition"></p><p class="caption spaced">实际执行的 SQL</p><pre id="analysis-sql"></pre><p class="caption">绑定参数</p><pre id="analysis-parameters"></pre><p class="caption">核验方式</p><p id="analysis-verification" class="technical"></p><dl class="analysis-provenance"><dt>分析运行编号</dt><dd id="analysis-run"></dd><dt>数据版本</dt><dd id="analysis-snapshot"></dd><dt>来源指纹</dt><dd id="analysis-fingerprint"></dd></dl><p class="caption">引用证据</p><pre id="analysis-evidence"></pre></details>
   <div class="analysis-actions"><a class="button" id="analysis-download" download>↓ 保存分析记录</a><button class="button" id="analysis-replay">用原数据版本重放</button></div>
+ </article>
+</section>
+<section id="anomalies" class="section" aria-label="异常检测">
+ <article class="card"><div class="card-head"><div><h2>哪些变化值得核查？</h2><p id="anomaly-scope" class="caption">请先导入文件或连接数据库</p></div><button class="text-btn" data-tab="overview">更改月份或地区 →</button></div>
+  <form id="anomaly-form" class="anomaly-form"><div><label for="anomaly-category">商品品类</label><select id="anomaly-category"><option value="">全部品类</option></select></div><button class="button primary" id="anomaly-submit" disabled>检查当前数据版本</button></form>
+  <p id="anomaly-message" class="caption spaced" role="status" aria-live="polite">检查销售额、订单量和单笔金额；历史不足时明确说明。</p>
+ </article>
+ <div id="anomaly-stale" class="hidden" role="status">来源、数据版本或筛选已变化。下方保留上次检测记录，可按当前范围重新检查。</div>
+ <article id="anomaly-result" class="card spaced hidden" aria-label="异常检测结果"><h2>检测记录</h2><p id="anomaly-result-scope" class="caption"></p><p id="anomaly-summary" class="spaced"></p>
+  <label class="caption"><input type="checkbox" id="anomaly-show-all"> 显示全部评估（含正常、历史不足和覆盖不足）</label><div id="anomaly-values"></div>
+  <details class="spaced"><summary>查看当前记录的规则、来源和质量检查</summary><pre id="anomaly-evidence"></pre></details>
+  <div class="anomaly-actions"><a class="button" id="anomaly-json" download>↓ 保存 JSON 记录</a><a class="button" id="anomaly-html" download>↓ 保存 HTML 报告</a><a class="button" id="anomaly-snapshot" download>查看原数据版本</a></div>
  </article>
 </section>
 <section id="lookup" class="section" aria-label="订单查询">
@@ -217,6 +230,7 @@ $('download').addEventListener('click',e=>{if($('download').getAttribute('aria-d
 <script src="/tools.js"></script>
 <script src="/connections.js"></script>
 <script src="/analysis.js"></script>
+<script src="/anomalies.js"></script>
 <script>initializeWorkspace();</script>
 </body>
 </html>

@@ -4,6 +4,7 @@ import argparse
 import csv
 import json
 import random
+from contextlib import ExitStack
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -30,47 +31,53 @@ def generate_demo(directory: Path, order_count=12000):
     directory.mkdir(parents=True, exist_ok=False)
     rng = random.Random(CHINA_DATASET["seed"])
     products = [(f"模拟商品{i:03d}", CATEGORIES[i % len(CATEGORIES)]) for i in range(80)]
-    orders, items, customers, payments = [], [], [], []
+    headers = {
+        "orders": ("order_id", "customer_id", "order_status", "order_purchase_timestamp", "order_delivered_customer_date", "order_estimated_delivery_date"),
+        "order_items": ("order_id", "order_item_id", "product_id", "seller_id", "shipping_limit_date", "price", "freight_value"),
+        "customers": ("customer_id", "customer_unique_id", "customer_zip_code_prefix", "customer_city", "customer_state"),
+        "products": ("product_id", "product_category_name"),
+        "order_payments": ("order_id", "payment_sequential", "payment_type", "payment_installments", "payment_value"),
+    }
+    # Keep the original RNG call order and CSV bytes without retaining all rows.
+    with ExitStack() as stack:
+        writers = {}
+        for name, header in headers.items():
+            target = stack.enter_context((directory / f"olist_{name}_dataset.csv").open("w", encoding="utf-8", newline=""))
+            writers[name] = csv.writer(target)
+            writers[name].writerow(header)
+        writers["products"].writerows(products)
+        _write_orders(writers, products, rng, order_count)
+    (directory / "dataset.json").write_text(json.dumps(CHINA_DATASET, ensure_ascii=False, indent=2), encoding="utf-8")
+    return directory
+
+
+def _write_orders(writers, products, rng, order_count):
     for i in range(order_count):
         order_id, customer_id = f"模拟订单{i+1:06d}", f"模拟客户映射{i+1:06d}"
         # A repeat buyer keeps the same province. The first 31 ensure full coverage.
         buyer = i if i < 31 else rng.randrange(max(31, order_count * 3 // 5))
         province = PROVINCES[buyer % len(PROVINCES)]
-        customers.append((customer_id, f"模拟买家{buyer:06d}", "000000", "模拟城市", province))
+        writers["customers"].writerow((customer_id, f"模拟买家{buyer:06d}", "000000", "模拟城市", province))
         day = i % 273 if i < 273 else rng.randrange(273)
         purchased = datetime(2026, 1, 1) + timedelta(days=day, hours=rng.randrange(8, 23), minutes=rng.randrange(60))
         status = "canceled" if i % 25 == 24 else "shipped" if i % 37 == 36 else "delivered"
         delivered = purchased + timedelta(days=rng.randrange(1, 6))
         # Explicit synthetic exceptions allow learners to inspect warnings.
         delivered_text = str(delivered) if status == "delivered" and i % 997 != 996 else ""
-        orders.append((order_id, customer_id, status, str(purchased), delivered_text, str(purchased + timedelta(days=7))))
+        writers["orders"].writerow((order_id, customer_id, status, str(purchased), delivered_text, str(purchased + timedelta(days=7))))
         total = 0
         for sequence in range(1, rng.randrange(1, 4) + 1):
             product = rng.choice(products)
             price, freight = rng.randrange(990, 69901), rng.choice((0, 0, 500, 800, 1200))
             total += price + freight
-            items.append((order_id, sequence, product[0], "模拟商家", str(purchased + timedelta(days=2)), money(price), money(freight)))
+            writers["order_items"].writerow((order_id, sequence, product[0], "模拟商家", str(purchased + timedelta(days=2)), money(price), money(freight)))
         if i % 333 == 332:
             total += 500  # A fictional 5-yuan discrepancy, not a real loss.
         if i % 7 == 0:
-            payments.extend(((order_id, 1, "模拟微信支付", 1, money(total // 2)),
-                             (order_id, 2, "模拟余额支付", 1, money(total - total // 2))))
+            writers["order_payments"].writerows(((order_id, 1, "模拟微信支付", 1, money(total // 2)),
+                                               (order_id, 2, "模拟余额支付", 1, money(total - total // 2))))
         else:
-            payments.append((order_id, 1, rng.choice(("模拟微信支付", "模拟支付宝", "模拟银行卡")), 1, money(total)))
-    tables = {
-        "orders": (("order_id", "customer_id", "order_status", "order_purchase_timestamp", "order_delivered_customer_date", "order_estimated_delivery_date"), orders),
-        "order_items": (("order_id", "order_item_id", "product_id", "seller_id", "shipping_limit_date", "price", "freight_value"), items),
-        "customers": (("customer_id", "customer_unique_id", "customer_zip_code_prefix", "customer_city", "customer_state"), customers),
-        "products": (("product_id", "product_category_name"), products),
-        "order_payments": (("order_id", "payment_sequential", "payment_type", "payment_installments", "payment_value"), payments),
-    }
-    for name, (header, records) in tables.items():
-        with (directory / f"olist_{name}_dataset.csv").open("w", encoding="utf-8", newline="") as target:
-            writer = csv.writer(target)
-            writer.writerow(header)
-            writer.writerows(records)
-    (directory / "dataset.json").write_text(json.dumps(CHINA_DATASET, ensure_ascii=False, indent=2), encoding="utf-8")
-    return directory
+            writers["order_payments"].writerow((order_id, 1, rng.choice(("模拟微信支付", "模拟支付宝", "模拟银行卡")), 1, money(total)))
 
 
 def main():

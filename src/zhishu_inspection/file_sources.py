@@ -112,6 +112,16 @@ def _delimited(path, kind, content):
     return [_table(path.stem, header, rows, path, kind,row_numbers=row_numbers)]
 
 
+def read_csv_table(content: bytes) -> TableData:
+    """Reuse the bounded CSV parser for an already captured, immutable buffer."""
+    if not isinstance(content, bytes) or not content or len(content) > MAX_BYTES:
+        raise ValueError('CSV 内容不能为空或超过 20 MB')
+    try:
+        return _delimited(Path('input.csv'), 'csv', content)[0]
+    except csv.Error:
+        raise ValueError('CSV 格式损坏，请重新导出为标准 CSV') from None
+
+
 def _json_object(pairs):
     record = {}
     for key, value in pairs:
